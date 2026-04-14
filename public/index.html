@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Timer Challenge — Stop the Clock!</title>
+  <meta name="description" content="A multiplayer timing precision game. Compete with friends to stop a hidden timer at exactly the right moment!">
+  <meta name="theme-color" content="#0a0e1a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet"></noscript>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- ═══ Particles Background ═══ -->
+  <div id="particles-bg"></div>
+
+  <!-- ═══ Main Container ═══ -->
+  <div id="app">
+
+    <!-- ─── LANDING VIEW ─── -->
+    <section id="view-landing" class="view active">
+      <div class="landing-content">
+        <div class="logo-section">
+          <div class="logo-icon">
+            <svg viewBox="0 0 100 100" class="timer-svg">
+              <circle cx="50" cy="50" r="42" fill="none" stroke="var(--accent-dim)" stroke-width="4"/>
+              <circle cx="50" cy="50" r="42" fill="none" stroke="var(--accent)" stroke-width="4"
+                stroke-dasharray="264" stroke-dashoffset="66" stroke-linecap="round" class="timer-ring"/>
+              <line x1="50" y1="50" x2="50" y2="18" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" class="timer-hand"/>
+              <circle cx="50" cy="50" r="4" fill="var(--accent)"/>
+            </svg>
+          </div>
+          <h1 class="game-title">Timer<span class="accent">Challenge</span></h1>
+          <p class="game-subtitle">Stop the hidden clock at the exact moment. Compete with friends in real-time!</p>
+        </div>
+        <div class="landing-actions">
+          <button id="btn-create" class="btn btn-primary btn-large">
+            <span class="btn-icon">+</span>
+            Create Room
+          </button>
+          <button id="btn-join" class="btn btn-secondary btn-large">
+            <span class="btn-icon">→</span>
+            Join Room
+          </button>
+        </div>
+        <div class="landing-footer">
+          <p class="how-it-works-hint">🎯 A target time is set • ⏱️ Start the hidden timer • ✋ Stop when you think it's right</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── CREATE ROOM VIEW ─── -->
+    <section id="view-create" class="view">
+      <div class="card card-form">
+        <button class="btn-back" id="btn-back-create">← Back</button>
+        <h2 class="card-title">Create a Room</h2>
+        <p class="card-desc">Set up your game and invite friends</p>
+        <form id="form-create" autocomplete="off">
+          <div class="form-group">
+            <label for="create-username">Your Name</label>
+            <input type="text" id="create-username" placeholder="Enter your name" maxlength="20" required>
+          </div>
+          <div class="form-group">
+            <label>Number of Rounds</label>
+            <div class="rounds-selector" id="rounds-selector">
+              <button type="button" class="round-option" data-rounds="1">1</button>
+              <button type="button" class="round-option" data-rounds="2">2</button>
+              <button type="button" class="round-option active" data-rounds="3">3</button>
+              <button type="button" class="round-option" data-rounds="4">4</button>
+              <button type="button" class="round-option" data-rounds="5">5</button>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-full">
+            Create Room
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ─── JOIN ROOM VIEW ─── -->
+    <section id="view-join" class="view">
+      <div class="card card-form">
+        <button class="btn-back" id="btn-back-join">← Back</button>
+        <h2 class="card-title">Join a Room</h2>
+        <p class="card-desc">Enter the room code shared by your friend</p>
+        <form id="form-join" autocomplete="off">
+          <div class="form-group">
+            <label for="join-username">Your Name</label>
+            <input type="text" id="join-username" placeholder="Enter your name" maxlength="20" required>
+          </div>
+          <div class="form-group">
+            <label for="join-code">Room Code</label>
+            <input type="text" id="join-code" placeholder="e.g. ABC123" maxlength="6" class="input-code" required>
+          </div>
+          <button type="submit" class="btn btn-primary btn-full">
+            Join Room
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ─── LOBBY VIEW ─── -->
+    <section id="view-lobby" class="view">
+      <div class="lobby-container">
+        <div class="card lobby-card">
+          <div class="lobby-header">
+            <h2 class="card-title">Game Lobby</h2>
+            <div class="room-info">
+              <span class="room-code-label">Room Code</span>
+              <div class="room-code-display" id="lobby-room-code">------</div>
+              <button class="btn btn-small btn-accent" id="btn-copy-code">Copy Link</button>
+            </div>
+          </div>
+
+          <div class="lobby-details">
+            <div class="detail-chip">
+              <span class="detail-label">Rounds</span>
+              <span class="detail-value" id="lobby-rounds">3</span>
+            </div>
+            <div class="detail-chip">
+              <span class="detail-label">Players</span>
+              <span class="detail-value" id="lobby-player-count">1/15</span>
+            </div>
+          </div>
+
+          <div class="players-grid" id="lobby-players"></div>
+
+          <div id="lobby-host-controls" class="lobby-controls" style="display:none;">
+            <button class="btn btn-primary btn-large btn-full" id="btn-start-game">
+              🎮 Start Game
+            </button>
+          </div>
+
+          <div id="lobby-waiting" class="lobby-waiting">
+            <div class="pulse-dot"></div>
+            <span>Waiting for host to start the game...</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── GAMEPLAY VIEW ─── -->
+    <section id="view-game" class="view">
+      <div class="game-container">
+        <div class="game-header">
+          <div class="round-badge">
+            Round <span id="game-round-num">1</span> of <span id="game-max-rounds">3</span>
+          </div>
+          <div class="game-players-status" id="game-players-status"></div>
+        </div>
+
+        <div class="target-section">
+          <span class="target-label">Stop at exactly</span>
+          <div class="target-time" id="game-target-time">0.0</div>
+          <span class="target-unit">seconds</span>
+        </div>
+
+        <div class="timer-button-container">
+          <button id="btn-timer" class="timer-button" data-state="ready">
+            <span class="timer-btn-text">TAP TO START</span>
+            <div class="timer-btn-ring"></div>
+            <div class="timer-btn-pulse"></div>
+          </button>
+        </div>
+
+        <div class="timer-hint" id="timer-hint">
+          Press the button to start, then press again when you think the target time has elapsed
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── RESULTS VIEW ─── -->
+    <section id="view-results" class="view">
+      <div class="results-container">
+        <div class="card results-card">
+          <div class="results-header">
+            <h2 class="card-title">Round <span id="results-round-num">1</span> Results</h2>
+            <div class="target-recap">
+              Target: <span class="accent" id="results-target">0.0</span>s
+            </div>
+          </div>
+
+          <div class="results-table-wrap">
+            <table class="results-table" id="results-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Player</th>
+                  <th>Time</th>
+                  <th>Diff</th>
+                  <th>Points</th>
+                </tr>
+              </thead>
+              <tbody id="results-tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="standings-section">
+            <h3 class="standings-title">Overall Standings</h3>
+            <div class="standings-list" id="standings-list"></div>
+          </div>
+
+          <div id="results-host-controls" class="results-controls" style="display:none;">
+            <button class="btn btn-primary btn-large btn-full" id="btn-next-round">
+              Next Round →
+            </button>
+          </div>
+
+          <div id="results-waiting" class="lobby-waiting">
+            <div class="pulse-dot"></div>
+            <span>Waiting for host to start next round...</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── FINAL RESULTS VIEW ─── -->
+    <section id="view-final" class="view">
+      <div class="final-container">
+        <div class="confetti-container" id="confetti-container"></div>
+        <div class="card final-card">
+          <div class="trophy-section">
+            <div class="trophy">🏆</div>
+            <h2 class="winner-name" id="winner-name">Winner!</h2>
+            <p class="winner-score" id="winner-score">0 points</p>
+          </div>
+
+          <h3 class="final-title">Final Leaderboard</h3>
+          <div class="final-standings" id="final-standings"></div>
+
+          <div id="final-host-controls" style="display:none;">
+            <button class="btn btn-primary btn-large btn-full" id="btn-play-again">
+              🔄 Play Again
+            </button>
+          </div>
+          <button class="btn btn-secondary btn-full" id="btn-new-game" style="margin-top: 12px;">
+            🏠 Back to Home
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ═══ Toast Container ═══ -->
+  <div id="toast-container"></div>
+
+  <!-- ═══ Scripts ═══ -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/socket.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
