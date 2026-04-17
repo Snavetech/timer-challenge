@@ -116,24 +116,41 @@
       cell.addEventListener('click', () => handleGridCellClick(parseInt(cell.dataset.cell)));
     });
 
-    // Confirm traps button
+    // Confirm button (Trapper & Runners)
     document.getElementById('btn-grid-confirm').addEventListener('click', () => {
-      const cells = Game.gridGetSelectedCells();
-      if (cells.length !== 4) {
-        UI.showToast('Select exactly 4 cells', 'error');
-        return;
+      const isTrapper = Game.gridGetIsTrapper();
+      
+      if (isTrapper) {
+        const cells = Game.gridGetSelectedCells();
+        if (cells.length !== 4) {
+          UI.showToast('Select exactly 4 cells', 'error');
+          return;
+        }
+        Socket.gridSetTraps(cells);
+        document.getElementById('grid-waiting-text').textContent = 'Traps set! Waiting for runners...';
+        document.getElementById('grid-hint').textContent = 'Your traps are locked in. Waiting for runners to choose...';
+      } else {
+        const cells = Game.gridGetRunnerCells();
+        if (cells.length !== 2) {
+          UI.showToast('Select exactly 2 cells', 'error');
+          return;
+        }
+        Game.gridSetPhase('submitted');
+        Socket.gridPickCell(cells);
+        document.getElementById('grid-waiting-text').textContent = 'Picks locked! Waiting for others...';
+        document.getElementById('grid-hint').textContent = 'Your choices are locked in. Waiting for other runners...';
       }
-      Socket.gridSetTraps(cells);
 
       // Lock the board
       document.querySelectorAll('#grid-board .grid-cell').forEach(c => {
         c.classList.add('grid-cell-locked');
+        if (!isTrapper && !c.classList.contains('grid-cell-runner-pick')) {
+          c.classList.add('grid-cell-disabled');
+        }
       });
       document.getElementById('btn-grid-confirm').style.display = 'none';
       document.getElementById('grid-counter').style.display = 'none';
       document.getElementById('grid-waiting').style.display = 'flex';
-      document.getElementById('grid-waiting-text').textContent = 'Traps set! Waiting for runners...';
-      document.getElementById('grid-hint').textContent = 'Your traps are locked in. Waiting for runners to choose...';
     });
 
     // Grid next round button
@@ -153,25 +170,20 @@
       document.getElementById('grid-selected-count').textContent = selected.length;
       document.getElementById('btn-grid-confirm').disabled = selected.length !== 4;
     } else if (phase === 'runners-picking' && !Game.gridGetIsTrapper()) {
-      // Runner picking a single cell
-      if (Game.gridGetRunnerCell() !== null) return; // Already picked
-
-      Game.gridSetRunnerCell(cellIndex);
-      Game.gridSetPhase('submitted');
-
+      // Runner toggling cells
+      const selected = Game.gridToggleRunnerCell(cellIndex);
+      
       // Update UI
       document.querySelectorAll('#grid-board .grid-cell').forEach(c => {
+        const idx = parseInt(c.dataset.cell);
         c.classList.remove('grid-cell-runner-pick');
-        c.classList.add('grid-cell-locked');
+        if (selected.includes(idx)) {
+          c.classList.add('grid-cell-runner-pick');
+        }
       });
-      const targetCell = document.querySelector(`#grid-board .grid-cell[data-cell="${cellIndex}"]`);
-      if (targetCell) {
-        targetCell.classList.add('grid-cell-runner-pick');
-      }
-
-      document.getElementById('grid-hint').textContent = 'Your choice is locked in. Waiting for other runners...';
-
-      Socket.gridPickCell(cellIndex);
+      
+      document.getElementById('grid-selected-count').textContent = selected.length;
+      document.getElementById('btn-grid-confirm').disabled = selected.length !== 2;
     }
   }
 
@@ -421,8 +433,11 @@
         roleDesc.textContent = 'Select 4 cells to set your traps';
         document.getElementById('grid-counter').style.display = 'block';
         document.getElementById('grid-selected-count').textContent = '0';
+        document.getElementById('grid-counter-total').textContent = '4';
+        document.getElementById('grid-counter-label').textContent = 'traps set';
         document.getElementById('btn-grid-confirm').style.display = 'inline-flex';
         document.getElementById('btn-grid-confirm').disabled = true;
+        document.getElementById('btn-grid-confirm').innerHTML = '🪤 Confirm Traps';
         document.getElementById('grid-waiting').style.display = 'none';
         document.getElementById('grid-hint').textContent = 'Choose 4 cells to trap runners. They won\'t see your picks!';
       } else {
@@ -465,8 +480,18 @@
           cell.classList.remove('grid-cell-disabled');
         });
         document.getElementById('grid-waiting').style.display = 'none';
-        document.getElementById('grid-role-desc').textContent = 'Pick 1 cell — avoid the traps!';
-        document.getElementById('grid-hint').textContent = 'The trapper has placed 4 traps. Pick a safe cell!';
+        
+        document.getElementById('grid-counter').style.display = 'block';
+        document.getElementById('grid-selected-count').textContent = '0';
+        document.getElementById('grid-counter-total').textContent = '2';
+        document.getElementById('grid-counter-label').textContent = 'cells picked';
+        
+        document.getElementById('btn-grid-confirm').style.display = 'inline-flex';
+        document.getElementById('btn-grid-confirm').disabled = true;
+        document.getElementById('btn-grid-confirm').innerHTML = '🏃 Confirm Picks';
+
+        document.getElementById('grid-role-desc').textContent = 'Pick 2 cells — avoid the traps!';
+        document.getElementById('grid-hint').textContent = 'The trapper has placed 4 traps. Pick 2 safe cells!';
       }
 
       UI.showToast(data.message, 'info');

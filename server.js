@@ -308,17 +308,21 @@ function submitGridTraps(room, playerId, cells) {
   return { success: true };
 }
 
-function submitGridRunnerChoice(room, playerId, cell) {
+function submitGridRunnerChoice(room, playerId, cells) {
   if (room.gridState.phase !== 'runners-picking') return null;
 
   const playerOrder = getPlayerOrder(room);
   const trapperId = playerOrder[room.gridState.trapperIndex];
-  if (playerId === trapperId) return { error: 'Trapper cannot pick a cell' };
+  if (playerId === trapperId) return { error: 'Trapper cannot pick cells' };
 
   if (room.gridState.runnerSelections.has(playerId)) return { error: 'Already submitted' };
-  if (cell < 0 || cell > 8 || !Number.isInteger(cell)) return { error: 'Invalid cell' };
+  
+  if (!Array.isArray(cells) || cells.length !== 2) return { error: 'Must select exactly 2 cells' };
+  const uniqueCells = [...new Set(cells)];
+  if (uniqueCells.length !== 2) return { error: 'Cells must be unique' };
+  if (uniqueCells.some(c => c < 0 || c > 8 || !Number.isInteger(c))) return { error: 'Invalid cell index' };
 
-  room.gridState.runnerSelections.set(playerId, cell);
+  room.gridState.runnerSelections.set(playerId, uniqueCells);
 
   // Check if all runners have submitted
   const runners = playerOrder.filter(id => id !== trapperId);
@@ -347,56 +351,64 @@ function endGridRound(room) {
   const trapperPlayer = room.players.get(trapperId);
   const trapCells = room.gridState.trapperCells;
 
-  // Build runner results
   const runnerResults = [];
-  let caughtCount = 0;
-  let survivedCount = 0;
+  let trapperScore = 0;
+  let allRunnersHit = true;
+  let someoneHit = false;
 
-  for (const [runnerId, cell] of room.gridState.runnerSelections) {
+  const runners = playerOrder.filter(id => id !== trapperId);
+  // Add DNF entries for runners who didn't submit
+  for (const runnerId of runners) {
     const player = room.players.get(runnerId);
-    const isCaught = trapCells.includes(cell);
-    if (isCaught) caughtCount++;
-    else survivedCount++;
+    if (!room.gridState.runnerSelections.has(runnerId) && player?.connected) {
+      // DNF penalty: forced to pick 2 unique traps
+      const dnfCells = trapCells.slice(0, 2);
+      room.gridState.runnerSelections.set(runnerId, dnfCells);
+    }
+  }
+
+  const runnersWhoSubmitted = Array.from(room.gridState.runnerSelections.keys());
+
+  for (const runnerId of runnersWhoSubmitted) {
+    const cells = room.gridState.runnerSelections.get(runnerId);
+    const player = room.players.get(runnerId);
+    
+    let safe = 0;
+    let hits = 0;
+
+    for (const tile of cells) {
+      if (trapCells.includes(tile)) {
+        hits++;
+      } else {
+        safe++;
+      }
+    }
+
+    let runnerScore = (safe * 10) - (hits * 12);
+    if (safe === 2) runnerScore += 10;
+    if (hits === 2) runnerScore -= 5;
+    
+    if (hits === 0) allRunnersHit = false;
+    if (hits > 0) someoneHit = true;
+
+    // trapper gains
+    if (hits > 0) trapperScore += 8;
+    trapperScore += hits * 3;
 
     runnerResults.push({
       playerId: runnerId,
       playerName: player?.name || 'Unknown',
-      cell,
-      caught: isCaught,
-      score: isCaught ? 0 : GRID_SCORE_SURVIVE
+      cells,
+      hits,
+      safe,
+      score: runnerScore
     });
   }
 
-  // Add DNF entries for runners who didn't submit
-  const runners = playerOrder.filter(id => id !== trapperId);
-  for (const runnerId of runners) {
-    const player = room.players.get(runnerId);
-    if (!room.gridState.runnerSelections.has(runnerId) && player?.connected) {
-      const randomCell = trapCells[0]; // DNF lands on trap
-      runnerResults.push({
-        playerId: runnerId,
-        playerName: player?.name || 'Unknown',
-        cell: randomCell,
-        caught: true,
-        score: 0,
-        dnf: true
-      });
-      caughtCount++;
-    }
-  }
-
-  // Trapper score: 2 points per catch
-  let trapperScore = caughtCount * GRID_SCORE_CATCH;
-
-  // Bonus: all caught
-  const totalRunners = runnerResults.length;
-  if (totalRunners > 0 && caughtCount === totalRunners) {
-    trapperScore += GRID_SCORE_ALL_CAUGHT_BONUS;
-  }
-
-  // Bonus: all survived
-  if (totalRunners > 0 && survivedCount === totalRunners) {
-    runnerResults.forEach(r => { r.score += GRID_SCORE_ALL_SURVIVE_BONUS; });
+  // Trapper bonuses
+  if (runnersWhoSubmitted.length > 0) {
+    if (allRunnersHit) trapperScore += 15;
+    if (!someoneHit) trapperScore -= 10;
   }
 
   // Apply scores
@@ -406,7 +418,6 @@ function endGridRound(room) {
     if (player) player.totalScore += r.score;
   });
 
-  // Build standings
   const standings = Array.from(room.players.values())
     .map(p => ({ id: p.id, name: p.name, totalScore: p.totalScore, color: p.color }))
     .sort((a, b) => b.totalScore - a.totalScore);
@@ -423,9 +434,7 @@ function endGridRound(room) {
     trapCells,
     runnerResults,
     standings,
-    isLastRound,
-    caughtCount,
-    survivedCount
+    isLastRound
   };
 }
 

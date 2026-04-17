@@ -115,14 +115,14 @@ const Game = (() => {
   let gridSelectedCells = [];
   let gridIsTrapper = false;
   let gridPhase = 'idle'; // idle | trapper-picking | runners-picking | submitted | reveal
-  let gridRunnerCell = null;
+  let gridRunnerCells = [];
   let gridSubmittedRunners = [];
 
   function gridReset() {
     gridSelectedCells = [];
     gridIsTrapper = false;
     gridPhase = 'idle';
-    gridRunnerCell = null;
+    gridRunnerCells = [];
     gridSubmittedRunners = [];
   }
 
@@ -156,12 +156,18 @@ const Game = (() => {
     return [...gridSelectedCells];
   }
 
-  function gridSetRunnerCell(cell) {
-    gridRunnerCell = cell;
+  function gridToggleRunnerCell(cellIndex) {
+    const idx = gridRunnerCells.indexOf(cellIndex);
+    if (idx !== -1) {
+      gridRunnerCells.splice(idx, 1);
+    } else if (gridRunnerCells.length < 2) {
+      gridRunnerCells.push(cellIndex);
+    }
+    return gridRunnerCells;
   }
 
-  function gridGetRunnerCell() {
-    return gridRunnerCell;
+  function gridGetRunnerCells() {
+    return [...gridRunnerCells];
   }
 
   function gridAddSubmittedRunner(playerId) {
@@ -196,8 +202,8 @@ const Game = (() => {
     gridGetPhase,
     gridToggleCell,
     gridGetSelectedCells,
-    gridSetRunnerCell,
-    gridGetRunnerCell,
+    gridToggleRunnerCell,
+    gridGetRunnerCells,
     gridAddSubmittedRunner,
     gridGetSubmittedRunners,
     get currentRound() { return currentRound; },

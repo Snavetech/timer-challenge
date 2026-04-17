@@ -200,7 +200,7 @@ const UI = (() => {
 
       // Add runner markers
       runnerResults.forEach(r => {
-        if (r.cell === i) {
+        if (r.cells && r.cells.includes(i)) {
           const marker = document.createElement('div');
           marker.className = 'runner-marker';
           const player = players.find(p => p.id === r.playerId);
@@ -218,14 +218,16 @@ const UI = (() => {
     container.innerHTML = '';
     runnerResults.forEach((r, i) => {
       const row = document.createElement('div');
-      row.className = `grid-outcome-row ${r.caught ? 'outcome-caught' : 'outcome-safe'}`;
+      const hasHits = r.hits > 0;
+      row.className = `grid-outcome-row ${hasHits ? 'outcome-caught' : 'outcome-safe'}`;
       row.style.animationDelay = `${0.3 + i * 0.1}s`;
 
+      const scoreSign = r.score > 0 ? '+' : '';
       row.innerHTML = `
-        <span class="grid-outcome-icon">${r.caught ? '💥' : '🛡️'}</span>
+        <span class="grid-outcome-icon">${hasHits ? '💥' : '🛡️'}</span>
         <span class="grid-outcome-name">${escapeHtml(r.playerName)}${r.dnf ? ' (DNF)' : ''}</span>
-        <span class="grid-outcome-status ${r.caught ? 'status-caught' : 'status-safe'}">${r.caught ? 'CAUGHT' : 'SAFE'}</span>
-        <span class="grid-outcome-score">+${r.score}</span>
+        <span class="grid-outcome-status ${hasHits ? 'status-caught' : 'status-safe'}">${r.hits} HITS | ${r.safe} SAFE</span>
+        <span class="grid-outcome-score">${scoreSign}${r.score}</span>
       `;
       container.appendChild(row);
     });
