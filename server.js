@@ -29,7 +29,7 @@ function generateRoomCode() {
 
 function createRoom(hostId, hostName, rounds, mode) {
   const code = generateRoomCode();
-  const validMode = (mode === 'speed') ? 'speed' : 'classic';
+  const validMode = ['speed', 'grid'].includes(mode) ? mode : 'classic';
   const room = {
     code,
     hostId,
@@ -42,7 +42,14 @@ function createRoom(hostId, hostName, rounds, mode) {
     rounds: [],
     targetTime: null,
     roundTimeout: null,
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    // Grid mode state
+    gridState: validMode === 'grid' ? {
+      trapperIndex: -1,     // index in player order for rotation
+      trapperCells: [],     // 4 cells selected by trapper
+      runnerSelections: new Map(), // playerId -> cell index
+      phase: 'idle'         // idle | trapper-picking | runners-picking | reveal
+    } : null
   };
   rooms.set(code, room);
   return room;
@@ -51,7 +58,8 @@ function createRoom(hostId, hostName, rounds, mode) {
 function addPlayer(roomCode, playerId, playerName) {
   const room = rooms.get(roomCode);
   if (!room) return { error: 'Room not found' };
-  if (room.players.size >= 15) return { error: 'Room is full (max 15 players)' };
+  const maxPlayers = room.mode === 'grid' ? 5 : 15;
+  if (room.players.size >= maxPlayers) return { error: `Room is full (max ${maxPlayers} players)` };
   if (room.state !== 'lobby') return { error: 'Game already in progress' };
 
   // Check for duplicate names
@@ -212,6 +220,222 @@ function autoEndRound(room) {
   io.to(room.code).emit('round-results', roundResults);
 }
 
+// ─── Grid Mode Functions ─────────────────────────────────────────
+
+function getPlayerOrder(room) {
+  return Array.from(room.players.entries())
+    .filter(([, p]) => p.connected)
+    .map(([id]) => id);
+}
+
+function startGridRound(room) {
+  room.currentRound++;
+  room.state = 'playing';
+
+  const playerOrder = getPlayerOrder(room);
+  if (playerOrder.length < 2) return null;
+
+  // Rotate trapper
+  room.gridState.trapperIndex = (room.gridState.trapperIndex + 1) % playerOrder.length;
+  room.gridState.trapperCells = [];
+  room.gridState.runnerSelections = new Map();
+  room.gridState.phase = 'trapper-picking';
+
+  const trapperId = playerOrder[room.gridState.trapperIndex];
+  const trapperName = room.players.get(trapperId)?.name || 'Unknown';
+
+  const roundData = {
+    roundNumber: room.currentRound,
+    trapperId,
+    trapperName,
+    startedAt: Date.now()
+  };
+  room.rounds.push(roundData);
+
+  // Auto-timeout: give trapper 45s to pick
+  if (room.roundTimeout) clearTimeout(room.roundTimeout);
+  room.roundTimeout = setTimeout(() => {
+    autoSetTraps(room);
+  }, 45 * 1000);
+
+  return roundData;
+}
+
+function autoSetTraps(room) {
+  if (!room.gridState || room.gridState.phase !== 'trapper-picking') return;
+  // Auto-select random 4 cells
+  const available = [0,1,2,3,4,5,6,7,8];
+  const traps = [];
+  for (let i = 0; i < 4; i++) {
+    const idx = Math.floor(Math.random() * available.length);
+    traps.push(available.splice(idx, 1)[0]);
+  }
+  room.gridState.trapperCells = traps;
+  room.gridState.phase = 'runners-picking';
+
+  io.to(room.code).emit('grid-traps-locked', {
+    message: 'Trapper has set traps (auto)! Runners, pick your cell!'
+  });
+
+  // Auto-timeout: give runners 30s to pick
+  if (room.roundTimeout) clearTimeout(room.roundTimeout);
+  room.roundTimeout = setTimeout(() => {
+    autoEndGridRound(room);
+  }, 30 * 1000);
+}
+
+function submitGridTraps(room, playerId, cells) {
+  const playerOrder = getPlayerOrder(room);
+  const trapperId = playerOrder[room.gridState.trapperIndex];
+  if (playerId !== trapperId) return { error: 'You are not the trapper' };
+  if (room.gridState.phase !== 'trapper-picking') return { error: 'Not in trapper phase' };
+
+  // Validate: exactly 4 unique cells in range 0-8
+  if (!Array.isArray(cells) || cells.length !== 4) return { error: 'Must select exactly 4 cells' };
+  const uniqueCells = [...new Set(cells)];
+  if (uniqueCells.length !== 4) return { error: 'Cells must be unique' };
+  if (uniqueCells.some(c => c < 0 || c > 8 || !Number.isInteger(c))) return { error: 'Invalid cell index' };
+
+  room.gridState.trapperCells = uniqueCells;
+  room.gridState.phase = 'runners-picking';
+
+  // Reset timeout for runner phase
+  if (room.roundTimeout) clearTimeout(room.roundTimeout);
+  room.roundTimeout = setTimeout(() => {
+    autoEndGridRound(room);
+  }, 30 * 1000);
+
+  return { success: true };
+}
+
+function submitGridRunnerChoice(room, playerId, cell) {
+  if (room.gridState.phase !== 'runners-picking') return null;
+
+  const playerOrder = getPlayerOrder(room);
+  const trapperId = playerOrder[room.gridState.trapperIndex];
+  if (playerId === trapperId) return { error: 'Trapper cannot pick a cell' };
+
+  if (room.gridState.runnerSelections.has(playerId)) return { error: 'Already submitted' };
+  if (cell < 0 || cell > 8 || !Number.isInteger(cell)) return { error: 'Invalid cell' };
+
+  room.gridState.runnerSelections.set(playerId, cell);
+
+  // Check if all runners have submitted
+  const runners = playerOrder.filter(id => id !== trapperId);
+  const connectedRunners = runners.filter(id => room.players.get(id)?.connected);
+  if (room.gridState.runnerSelections.size >= connectedRunners.length) {
+    return endGridRound(room);
+  }
+
+  return { submitted: true, waiting: connectedRunners.length - room.gridState.runnerSelections.size };
+}
+
+// Grid scoring constants
+const GRID_SCORE_SURVIVE = 3;
+const GRID_SCORE_CATCH = 2;
+const GRID_SCORE_ALL_SURVIVE_BONUS = 1;
+const GRID_SCORE_ALL_CAUGHT_BONUS = 3;
+
+function endGridRound(room) {
+  if (room.roundTimeout) {
+    clearTimeout(room.roundTimeout);
+    room.roundTimeout = null;
+  }
+
+  const playerOrder = getPlayerOrder(room);
+  const trapperId = playerOrder[room.gridState.trapperIndex];
+  const trapperPlayer = room.players.get(trapperId);
+  const trapCells = room.gridState.trapperCells;
+
+  // Build runner results
+  const runnerResults = [];
+  let caughtCount = 0;
+  let survivedCount = 0;
+
+  for (const [runnerId, cell] of room.gridState.runnerSelections) {
+    const player = room.players.get(runnerId);
+    const isCaught = trapCells.includes(cell);
+    if (isCaught) caughtCount++;
+    else survivedCount++;
+
+    runnerResults.push({
+      playerId: runnerId,
+      playerName: player?.name || 'Unknown',
+      cell,
+      caught: isCaught,
+      score: isCaught ? 0 : GRID_SCORE_SURVIVE
+    });
+  }
+
+  // Add DNF entries for runners who didn't submit
+  const runners = playerOrder.filter(id => id !== trapperId);
+  for (const runnerId of runners) {
+    const player = room.players.get(runnerId);
+    if (!room.gridState.runnerSelections.has(runnerId) && player?.connected) {
+      const randomCell = trapCells[0]; // DNF lands on trap
+      runnerResults.push({
+        playerId: runnerId,
+        playerName: player?.name || 'Unknown',
+        cell: randomCell,
+        caught: true,
+        score: 0,
+        dnf: true
+      });
+      caughtCount++;
+    }
+  }
+
+  // Trapper score: 2 points per catch
+  let trapperScore = caughtCount * GRID_SCORE_CATCH;
+
+  // Bonus: all caught
+  const totalRunners = runnerResults.length;
+  if (totalRunners > 0 && caughtCount === totalRunners) {
+    trapperScore += GRID_SCORE_ALL_CAUGHT_BONUS;
+  }
+
+  // Bonus: all survived
+  if (totalRunners > 0 && survivedCount === totalRunners) {
+    runnerResults.forEach(r => { r.score += GRID_SCORE_ALL_SURVIVE_BONUS; });
+  }
+
+  // Apply scores
+  if (trapperPlayer) trapperPlayer.totalScore += trapperScore;
+  runnerResults.forEach(r => {
+    const player = room.players.get(r.playerId);
+    if (player) player.totalScore += r.score;
+  });
+
+  // Build standings
+  const standings = Array.from(room.players.values())
+    .map(p => ({ id: p.id, name: p.name, totalScore: p.totalScore, color: p.color }))
+    .sort((a, b) => b.totalScore - a.totalScore);
+
+  const isLastRound = room.currentRound >= room.maxRounds;
+  room.state = isLastRound ? 'finished' : 'results';
+  room.gridState.phase = 'reveal';
+
+  return {
+    roundNumber: room.currentRound,
+    trapperName: trapperPlayer?.name || 'Unknown',
+    trapperId,
+    trapperScore,
+    trapCells,
+    runnerResults,
+    standings,
+    isLastRound,
+    caughtCount,
+    survivedCount
+  };
+}
+
+function autoEndGridRound(room) {
+  if (room.state !== 'playing' || !room.gridState) return;
+  if (room.gridState.phase !== 'runners-picking') return;
+  const result = endGridRound(room);
+  io.to(room.code).emit('grid-round-results', result);
+}
+
 // ─── Room Cleanup ────────────────────────────────────────────────
 
 setInterval(() => {
@@ -312,6 +536,27 @@ io.on('connection', (socket) => {
       return;
     }
     if (room.state !== 'lobby' && room.state !== 'results') return;
+
+    if (room.mode === 'grid') {
+      if (room.players.size < 2) {
+        socket.emit('error-msg', { message: 'Need at least 2 players for Grid mode' });
+        return;
+      }
+      const roundData = startGridRound(room);
+      if (!roundData) {
+        socket.emit('error-msg', { message: 'Cannot start grid round' });
+        return;
+      }
+      io.to(roomCode).emit('grid-round-started', {
+        roundNumber: roundData.roundNumber,
+        trapperId: roundData.trapperId,
+        trapperName: roundData.trapperName,
+        maxRounds: room.maxRounds,
+        players: getPlayerList(room)
+      });
+      return;
+    }
+
     if (room.players.size < 1) {
       socket.emit('error-msg', { message: 'Need at least 1 player to start' });
       return;
@@ -354,6 +599,19 @@ io.on('connection', (socket) => {
     if (socket.id !== room.hostId) return;
     if (room.state !== 'results') return;
 
+    if (room.mode === 'grid') {
+      const roundData = startGridRound(room);
+      if (!roundData) return;
+      io.to(roomCode).emit('grid-round-started', {
+        roundNumber: roundData.roundNumber,
+        trapperId: roundData.trapperId,
+        trapperName: roundData.trapperName,
+        maxRounds: room.maxRounds,
+        players: getPlayerList(room)
+      });
+      return;
+    }
+
     const roundData = startRound(room);
     io.to(roomCode).emit('round-started', {
       roundNumber: roundData.roundNumber,
@@ -362,6 +620,47 @@ io.on('connection', (socket) => {
       mode: room.mode,
       players: getPlayerList(room)
     });
+  });
+
+  // ─── Grid Mode Events ───────────────────────────────────────
+
+  socket.on('grid-set-traps', ({ roomCode, cells }) => {
+    const room = rooms.get(roomCode);
+    if (!room || room.mode !== 'grid' || room.state !== 'playing') return;
+
+    const result = submitGridTraps(room, socket.id, cells);
+    if (result.error) {
+      socket.emit('error-msg', { message: result.error });
+      return;
+    }
+
+    io.to(roomCode).emit('grid-traps-locked', {
+      message: 'Trapper has set the traps! Runners, pick your cell!'
+    });
+  });
+
+  socket.on('grid-pick-cell', ({ roomCode, cell }) => {
+    const room = rooms.get(roomCode);
+    if (!room || room.mode !== 'grid' || room.state !== 'playing') return;
+
+    const result = submitGridRunnerChoice(room, socket.id, cell);
+    if (!result) return;
+
+    if (result.error) {
+      socket.emit('error-msg', { message: result.error });
+      return;
+    }
+
+    if (result.submitted) {
+      io.to(roomCode).emit('grid-runner-submitted', {
+        playerId: socket.id,
+        playerName: room.players.get(socket.id)?.name,
+        waiting: result.waiting
+      });
+    } else {
+      // All runners submitted — send grid results
+      io.to(roomCode).emit('grid-round-results', result);
+    }
   });
 
   socket.on('play-again', ({ roomCode }) => {

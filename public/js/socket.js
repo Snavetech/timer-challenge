@@ -71,6 +71,15 @@ const Socket = (() => {
     socket.emit('play-again', { roomCode });
   }
 
+  // Grid mode methods
+  function gridSetTraps(cells) {
+    socket.emit('grid-set-traps', { roomCode, cells });
+  }
+
+  function gridPickCell(cell) {
+    socket.emit('grid-pick-cell', { roomCode, cell });
+  }
+
   function setRoomCode(code) {
     roomCode = code;
   }
@@ -112,6 +121,8 @@ const Socket = (() => {
     playerStop,
     nextRound,
     playAgain,
+    gridSetTraps,
+    gridPickCell,
     setRoomCode,
     getRoomCode,
     setIsHost,

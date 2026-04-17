@@ -64,7 +64,7 @@
           </div>
           <div class="form-group">
             <label>Game Mode</label>
-            <div class="mode-selector" id="mode-selector">
+            <div class="mode-selector mode-selector-3" id="mode-selector">
               <button type="button" class="mode-option active" data-mode="classic">
                 <span class="mode-icon">🙈</span>
                 <span class="mode-name">Classic</span>
@@ -74,6 +74,11 @@
                 <span class="mode-icon">⚡</span>
                 <span class="mode-name">Speed</span>
                 <span class="mode-desc">Visible timer</span>
+              </button>
+              <button type="button" class="mode-option" data-mode="grid">
+                <span class="mode-icon">🔲</span>
+                <span class="mode-name">Grid</span>
+                <span class="mode-desc">Avoid traps</span>
               </button>
             </div>
           </div>
@@ -142,6 +147,11 @@
               <span class="detail-label">Players</span>
               <span class="detail-value" id="lobby-player-count">1/15</span>
             </div>
+          </div>
+
+          <!-- Grid mode info -->
+          <div class="grid-mode-info" id="grid-mode-info" style="display: none;">
+            <p class="grid-info-text">🎯 Each round a <strong>Trapper</strong> picks 4 cells. <strong>Runners</strong> try to avoid them!</p>
           </div>
 
           <div class="players-grid" id="lobby-players"></div>
@@ -271,6 +281,118 @@
           <button class="btn btn-secondary btn-full" id="btn-new-game" style="margin-top: 12px;">
             🏠 Back to Home
           </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── GRID GAMEPLAY VIEW ─── -->
+    <section id="view-grid-game" class="view">
+      <div class="grid-game-container">
+        <div class="game-header">
+          <div class="game-header-left">
+            <div class="round-badge">
+              Round <span id="grid-round-num">1</span> of <span id="grid-max-rounds">3</span>
+            </div>
+            <div class="mode-badge mode-badge-grid">
+              <span class="mode-badge-icon">🔲</span>
+              <span>Grid</span>
+            </div>
+          </div>
+          <div class="game-players-status" id="grid-players-status"></div>
+        </div>
+
+        <!-- Role Badge -->
+        <div class="grid-role-section">
+          <div class="grid-role-badge" id="grid-role-badge">
+            <span class="grid-role-icon" id="grid-role-icon">🪤</span>
+            <span class="grid-role-text" id="grid-role-text">You are the Trapper</span>
+          </div>
+          <p class="grid-role-desc" id="grid-role-desc">Select 4 cells to set your traps</p>
+        </div>
+
+        <!-- Selection Counter (Trapper) -->
+        <div class="grid-counter" id="grid-counter" style="display: none;">
+          <span id="grid-selected-count">0</span> / 4 traps set
+        </div>
+
+        <!-- 3x3 Grid -->
+        <div class="grid-board" id="grid-board">
+          <button class="grid-cell" data-cell="0"></button>
+          <button class="grid-cell" data-cell="1"></button>
+          <button class="grid-cell" data-cell="2"></button>
+          <button class="grid-cell" data-cell="3"></button>
+          <button class="grid-cell" data-cell="4"></button>
+          <button class="grid-cell" data-cell="5"></button>
+          <button class="grid-cell" data-cell="6"></button>
+          <button class="grid-cell" data-cell="7"></button>
+          <button class="grid-cell" data-cell="8"></button>
+        </div>
+
+        <!-- Confirm Button (Trapper) -->
+        <button class="btn btn-primary btn-large" id="btn-grid-confirm" style="display: none;" disabled>
+          🪤 Confirm Traps
+        </button>
+
+        <!-- Waiting Message -->
+        <div class="grid-waiting" id="grid-waiting" style="display: none;">
+          <div class="pulse-dot"></div>
+          <span id="grid-waiting-text">Waiting for trapper to set traps...</span>
+        </div>
+
+        <!-- Phase hint -->
+        <div class="timer-hint" id="grid-hint">
+          Pick your cells wisely!
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── GRID RESULTS VIEW ─── -->
+    <section id="view-grid-results" class="view">
+      <div class="results-container">
+        <div class="card results-card">
+          <div class="results-header">
+            <h2 class="card-title">Round <span id="grid-results-round-num">1</span> Results</h2>
+            <div class="grid-results-summary" id="grid-results-summary">
+              <span class="grid-trapper-recap">🪤 <strong id="grid-results-trapper">Player</strong> was the Trapper</span>
+            </div>
+          </div>
+
+          <!-- Grid reveal -->
+          <div class="grid-reveal-section">
+            <div class="grid-board grid-board-reveal" id="grid-board-reveal">
+              <div class="grid-cell-reveal" data-cell="0"></div>
+              <div class="grid-cell-reveal" data-cell="1"></div>
+              <div class="grid-cell-reveal" data-cell="2"></div>
+              <div class="grid-cell-reveal" data-cell="3"></div>
+              <div class="grid-cell-reveal" data-cell="4"></div>
+              <div class="grid-cell-reveal" data-cell="5"></div>
+              <div class="grid-cell-reveal" data-cell="6"></div>
+              <div class="grid-cell-reveal" data-cell="7"></div>
+              <div class="grid-cell-reveal" data-cell="8"></div>
+            </div>
+          </div>
+
+          <!-- Runner outcomes -->
+          <div class="grid-outcomes" id="grid-outcomes"></div>
+
+          <!-- Trapper score -->
+          <div class="grid-trapper-score" id="grid-trapper-score"></div>
+
+          <div class="standings-section">
+            <h3 class="standings-title">Overall Standings</h3>
+            <div class="standings-list" id="grid-standings-list"></div>
+          </div>
+
+          <div id="grid-results-host-controls" class="results-controls" style="display:none;">
+            <button class="btn btn-primary btn-large btn-full" id="btn-grid-next-round">
+              Next Round →
+            </button>
+          </div>
+
+          <div id="grid-results-waiting" class="lobby-waiting">
+            <div class="pulse-dot"></div>
+            <span>Waiting for host to start next round...</span>
+          </div>
         </div>
       </div>
     </section>

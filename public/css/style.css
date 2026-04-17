@@ -1338,6 +1338,414 @@ body {
 }
 
 /* ═══════════════════════════════════════════
+   GRID AVOIDANCE MODE
+   ═══════════════════════════════════════════ */
+
+/* ─── Mode Selector 3-column ─── */
+.mode-selector-3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.mode-option.active[data-mode="grid"] {
+  background: rgba(124, 77, 255, 0.06);
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+  box-shadow: 0 0 20px rgba(124, 77, 255, 0.12), inset 0 0 30px rgba(124, 77, 255, 0.03);
+}
+
+.mode-badge-grid {
+  background: rgba(124, 77, 255, 0.1);
+  border-color: rgba(124, 77, 255, 0.25);
+  color: var(--accent-2);
+}
+
+/* ─── Grid Mode Info (Lobby) ─── */
+.grid-mode-info {
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  background: rgba(124, 77, 255, 0.06);
+  border: 1px solid rgba(124, 77, 255, 0.15);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+.grid-info-text {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.grid-info-text strong {
+  color: var(--accent-2);
+}
+
+/* ─── Grid Game Container ─── */
+.grid-game-container {
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+/* ─── Role Badge ─── */
+.grid-role-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.grid-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 24px;
+  border-radius: var(--radius-xl);
+  font-size: 1.1rem;
+  font-weight: 700;
+  animation: roleBadgeAppear 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.grid-role-badge.role-trapper {
+  background: linear-gradient(135deg, rgba(255, 23, 68, 0.1), rgba(255, 23, 68, 0.03));
+  border: 2px solid rgba(255, 23, 68, 0.3);
+  color: var(--danger);
+}
+
+.grid-role-badge.role-runner {
+  background: linear-gradient(135deg, rgba(0, 230, 118, 0.1), rgba(0, 230, 118, 0.03));
+  border: 2px solid rgba(0, 230, 118, 0.3);
+  color: var(--success);
+}
+
+@keyframes roleBadgeAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.7) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.grid-role-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.grid-role-text {
+  letter-spacing: 0.02em;
+}
+
+.grid-role-desc {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+/* ─── Selection Counter ─── */
+.grid-counter {
+  padding: 8px 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  backdrop-filter: blur(10px);
+}
+
+.grid-counter span {
+  color: var(--danger);
+  font-weight: 800;
+  font-family: var(--font-mono);
+}
+
+/* ─── 3x3 Grid Board ─── */
+.grid-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1;
+}
+
+.grid-cell {
+  aspect-ratio: 1;
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--border-subtle);
+  background: var(--bg-input);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  font-family: var(--font-body);
+}
+
+.grid-cell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), transparent);
+  pointer-events: none;
+  transition: all var(--transition-base);
+}
+
+.grid-cell:hover:not(.grid-cell-disabled):not(.grid-cell-locked) {
+  border-color: var(--accent-2);
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(124, 77, 255, 0.2);
+}
+
+.grid-cell:active:not(.grid-cell-disabled):not(.grid-cell-locked) {
+  transform: scale(0.95);
+}
+
+/* Trapper selected cell */
+.grid-cell.grid-cell-trap {
+  background: linear-gradient(135deg, rgba(255, 23, 68, 0.15), rgba(255, 23, 68, 0.05));
+  border-color: var(--danger);
+  box-shadow: 0 0 20px rgba(255, 23, 68, 0.15);
+  animation: cellSelect 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.grid-cell.grid-cell-trap::after {
+  content: '💀';
+  font-size: 1.5rem;
+  animation: cellIconPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Runner selected cell */
+.grid-cell.grid-cell-runner-pick {
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.15), rgba(0, 229, 255, 0.05));
+  border-color: var(--accent);
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.2);
+  animation: cellSelect 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.grid-cell.grid-cell-runner-pick::after {
+  content: '🏃';
+  font-size: 1.5rem;
+  animation: cellIconPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Disabled cell */
+.grid-cell.grid-cell-disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* Locked cell (after submission) */
+.grid-cell.grid-cell-locked {
+  cursor: default;
+}
+
+@keyframes cellSelect {
+  0% { transform: scale(0.85); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+@keyframes cellIconPop {
+  from {
+    opacity: 0;
+    transform: scale(0);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ─── Grid Reveal Board ─── */
+.grid-board-reveal {
+  max-width: 280px;
+  margin: 0 auto 20px;
+  gap: 8px;
+}
+
+.grid-cell-reveal {
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--border-subtle);
+  background: var(--bg-input);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Safe cell in reveal */
+.grid-cell-reveal.cell-safe {
+  background: linear-gradient(135deg, rgba(0, 230, 118, 0.12), rgba(0, 230, 118, 0.04));
+  border-color: rgba(0, 230, 118, 0.4);
+  animation: cellReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Trapped cell in reveal */
+.grid-cell-reveal.cell-trapped {
+  background: linear-gradient(135deg, rgba(255, 23, 68, 0.15), rgba(255, 23, 68, 0.05));
+  border-color: rgba(255, 23, 68, 0.4);
+  animation: cellReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Runner marker on reveal cell */
+.grid-cell-reveal .runner-marker {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.55rem;
+  font-weight: 800;
+  color: #0a0e1a;
+  animation: markerPop 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.3s;
+}
+
+@keyframes cellReveal {
+  from {
+    opacity: 0;
+    transform: scale(0.7) rotateY(90deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotateY(0deg);
+  }
+}
+
+@keyframes markerPop {
+  from {
+    opacity: 0;
+    transform: scale(0);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ─── Grid Waiting ─── */
+.grid-waiting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 18px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* ─── Grid Outcomes ─── */
+.grid-outcomes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.grid-outcome-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  animation: rowSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.grid-outcome-row.outcome-safe {
+  background: linear-gradient(135deg, rgba(0, 230, 118, 0.08), rgba(0, 230, 118, 0.02));
+  border: 1px solid rgba(0, 230, 118, 0.2);
+}
+
+.grid-outcome-row.outcome-caught {
+  background: linear-gradient(135deg, rgba(255, 23, 68, 0.08), rgba(255, 23, 68, 0.02));
+  border: 1px solid rgba(255, 23, 68, 0.2);
+}
+
+.grid-outcome-icon {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.grid-outcome-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.grid-outcome-status {
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.grid-outcome-status.status-safe {
+  color: var(--success);
+}
+
+.grid-outcome-status.status-caught {
+  color: var(--danger);
+}
+
+.grid-outcome-score {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 0.95rem;
+}
+
+/* ─── Trapper Score Card ─── */
+.grid-trapper-score {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, rgba(255, 23, 68, 0.06), rgba(124, 77, 255, 0.06));
+  border: 1px solid rgba(124, 77, 255, 0.2);
+  border-radius: var(--radius-md);
+  margin-bottom: 24px;
+  font-size: 0.95rem;
+  animation: rowSlideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.grid-trapper-score .trapper-name {
+  font-weight: 600;
+}
+
+.grid-trapper-score .trapper-pts {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--accent-2);
+}
+
+/* ─── Grid Results Summary ─── */
+.grid-results-summary {
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.grid-trapper-recap strong {
+  color: var(--accent-2);
+}
+
+/* ═══════════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════════ */
 
@@ -1403,6 +1811,38 @@ body {
   .btn-large {
     padding: 15px 24px;
     font-size: 1rem;
+  }
+
+  .mode-selector-3 {
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+  }
+
+  .mode-selector-3 .mode-option {
+    padding: 12px 6px;
+  }
+
+  .mode-selector-3 .mode-name {
+    font-size: 0.85rem;
+  }
+
+  .mode-selector-3 .mode-desc {
+    font-size: 0.65rem;
+  }
+
+  .grid-board {
+    max-width: 260px;
+    gap: 8px;
+  }
+
+  .grid-board-reveal {
+    max-width: 220px;
+    gap: 6px;
+  }
+
+  .grid-role-badge {
+    padding: 10px 18px;
+    font-size: 0.95rem;
   }
 }
 

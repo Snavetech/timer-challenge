@@ -111,6 +111,69 @@ const Game = (() => {
     liveTimerRAF = requestAnimationFrame(tick);
   }
 
+  // ─── Grid Mode State ───
+  let gridSelectedCells = [];
+  let gridIsTrapper = false;
+  let gridPhase = 'idle'; // idle | trapper-picking | runners-picking | submitted | reveal
+  let gridRunnerCell = null;
+  let gridSubmittedRunners = [];
+
+  function gridReset() {
+    gridSelectedCells = [];
+    gridIsTrapper = false;
+    gridPhase = 'idle';
+    gridRunnerCell = null;
+    gridSubmittedRunners = [];
+  }
+
+  function gridSetIsTrapper(val) {
+    gridIsTrapper = val;
+  }
+
+  function gridGetIsTrapper() {
+    return gridIsTrapper;
+  }
+
+  function gridSetPhase(phase) {
+    gridPhase = phase;
+  }
+
+  function gridGetPhase() {
+    return gridPhase;
+  }
+
+  function gridToggleCell(cellIndex) {
+    const idx = gridSelectedCells.indexOf(cellIndex);
+    if (idx !== -1) {
+      gridSelectedCells.splice(idx, 1);
+    } else if (gridSelectedCells.length < 4) {
+      gridSelectedCells.push(cellIndex);
+    }
+    return gridSelectedCells;
+  }
+
+  function gridGetSelectedCells() {
+    return [...gridSelectedCells];
+  }
+
+  function gridSetRunnerCell(cell) {
+    gridRunnerCell = cell;
+  }
+
+  function gridGetRunnerCell() {
+    return gridRunnerCell;
+  }
+
+  function gridAddSubmittedRunner(playerId) {
+    if (!gridSubmittedRunners.includes(playerId)) {
+      gridSubmittedRunners.push(playerId);
+    }
+  }
+
+  function gridGetSubmittedRunners() {
+    return gridSubmittedRunners;
+  }
+
   return {
     setMode,
     getMode,
@@ -125,6 +188,18 @@ const Game = (() => {
     getPlayers,
     addSubmitted,
     getSubmittedPlayers,
+    // Grid methods
+    gridReset,
+    gridSetIsTrapper,
+    gridGetIsTrapper,
+    gridSetPhase,
+    gridGetPhase,
+    gridToggleCell,
+    gridGetSelectedCells,
+    gridSetRunnerCell,
+    gridGetRunnerCell,
+    gridAddSubmittedRunner,
+    gridGetSubmittedRunners,
     get currentRound() { return currentRound; },
     get maxRounds() { return maxRounds; },
     get currentTarget() { return currentTarget; }

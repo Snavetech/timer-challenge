@@ -185,6 +185,62 @@ const UI = (() => {
     showToast('Link copied to clipboard!', 'success');
   }
 
+  // ─── Grid Reveal Board ───
+  function renderGridReveal(container, trapCells, runnerResults, players) {
+    const cells = container.querySelectorAll('.grid-cell-reveal');
+    cells.forEach((cell, i) => {
+      // Reset
+      cell.className = 'grid-cell-reveal';
+      cell.innerHTML = '';
+      cell.style.animationDelay = `${i * 0.08}s`;
+
+      const isTrapped = trapCells.includes(i);
+      cell.classList.add(isTrapped ? 'cell-trapped' : 'cell-safe');
+      cell.textContent = isTrapped ? '💀' : '✅';
+
+      // Add runner markers
+      runnerResults.forEach(r => {
+        if (r.cell === i) {
+          const marker = document.createElement('div');
+          marker.className = 'runner-marker';
+          const player = players.find(p => p.id === r.playerId);
+          marker.style.background = player?.color || 'var(--accent)';
+          marker.textContent = r.playerName.substring(0, 1).toUpperCase();
+          marker.title = r.playerName;
+          cell.appendChild(marker);
+        }
+      });
+    });
+  }
+
+  // ─── Grid Outcomes List ───
+  function renderGridOutcomes(container, runnerResults) {
+    container.innerHTML = '';
+    runnerResults.forEach((r, i) => {
+      const row = document.createElement('div');
+      row.className = `grid-outcome-row ${r.caught ? 'outcome-caught' : 'outcome-safe'}`;
+      row.style.animationDelay = `${0.3 + i * 0.1}s`;
+
+      row.innerHTML = `
+        <span class="grid-outcome-icon">${r.caught ? '💥' : '🛡️'}</span>
+        <span class="grid-outcome-name">${escapeHtml(r.playerName)}${r.dnf ? ' (DNF)' : ''}</span>
+        <span class="grid-outcome-status ${r.caught ? 'status-caught' : 'status-safe'}">${r.caught ? 'CAUGHT' : 'SAFE'}</span>
+        <span class="grid-outcome-score">+${r.score}</span>
+      `;
+      container.appendChild(row);
+    });
+  }
+
+  // ─── Grid Trapper Score ───
+  function renderGridTrapperScore(container, trapperName, trapperScore, caughtCount, totalRunners) {
+    container.innerHTML = `
+      <span>🪤</span>
+      <span class="trapper-name">${escapeHtml(trapperName)}</span>
+      <span style="color: var(--text-muted)">caught ${caughtCount}/${totalRunners}</span>
+      <span class="trapper-pts">+${trapperScore} pts</span>
+    `;
+  }
+
   return {
     showView,
     showToast,
@@ -195,6 +251,9 @@ const UI = (() => {
     renderFinalStandings,
     spawnConfetti,
     copyToClipboard,
-    escapeHtml
+    escapeHtml,
+    renderGridReveal,
+    renderGridOutcomes,
+    renderGridTrapperScore
   };
 })();

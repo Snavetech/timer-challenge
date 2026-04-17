@@ -104,6 +104,86 @@
     document.getElementById('btn-new-game').addEventListener('click', () => {
       window.location.href = window.location.pathname;
     });
+
+    // ─── Grid Mode Event Listeners ───
+    setupGridEventListeners();
+  }
+
+  // ─── Grid Event Listeners ───
+  function setupGridEventListeners() {
+    // Grid cell clicks
+    document.querySelectorAll('#grid-board .grid-cell').forEach(cell => {
+      cell.addEventListener('click', () => handleGridCellClick(parseInt(cell.dataset.cell)));
+    });
+
+    // Confirm traps button
+    document.getElementById('btn-grid-confirm').addEventListener('click', () => {
+      const cells = Game.gridGetSelectedCells();
+      if (cells.length !== 4) {
+        UI.showToast('Select exactly 4 cells', 'error');
+        return;
+      }
+      Socket.gridSetTraps(cells);
+
+      // Lock the board
+      document.querySelectorAll('#grid-board .grid-cell').forEach(c => {
+        c.classList.add('grid-cell-locked');
+      });
+      document.getElementById('btn-grid-confirm').style.display = 'none';
+      document.getElementById('grid-counter').style.display = 'none';
+      document.getElementById('grid-waiting').style.display = 'flex';
+      document.getElementById('grid-waiting-text').textContent = 'Traps set! Waiting for runners...';
+      document.getElementById('grid-hint').textContent = 'Your traps are locked in. Waiting for runners to choose...';
+    });
+
+    // Grid next round button
+    document.getElementById('btn-grid-next-round').addEventListener('click', () => {
+      Socket.nextRound();
+    });
+  }
+
+  // ─── Grid Cell Click Handler ───
+  function handleGridCellClick(cellIndex) {
+    const phase = Game.gridGetPhase();
+
+    if (phase === 'trapper-picking' && Game.gridGetIsTrapper()) {
+      // Trapper toggling cells
+      const selected = Game.gridToggleCell(cellIndex);
+      updateGridBoardUI(selected);
+      document.getElementById('grid-selected-count').textContent = selected.length;
+      document.getElementById('btn-grid-confirm').disabled = selected.length !== 4;
+    } else if (phase === 'runners-picking' && !Game.gridGetIsTrapper()) {
+      // Runner picking a single cell
+      if (Game.gridGetRunnerCell() !== null) return; // Already picked
+
+      Game.gridSetRunnerCell(cellIndex);
+      Game.gridSetPhase('submitted');
+
+      // Update UI
+      document.querySelectorAll('#grid-board .grid-cell').forEach(c => {
+        c.classList.remove('grid-cell-runner-pick');
+        c.classList.add('grid-cell-locked');
+      });
+      const targetCell = document.querySelector(`#grid-board .grid-cell[data-cell="${cellIndex}"]`);
+      if (targetCell) {
+        targetCell.classList.add('grid-cell-runner-pick');
+      }
+
+      document.getElementById('grid-hint').textContent = 'Your choice is locked in. Waiting for other runners...';
+
+      Socket.gridPickCell(cellIndex);
+    }
+  }
+
+  // ─── Update Grid Board UI ───
+  function updateGridBoardUI(selectedCells) {
+    document.querySelectorAll('#grid-board .grid-cell').forEach(cell => {
+      const idx = parseInt(cell.dataset.cell);
+      cell.classList.remove('grid-cell-trap', 'grid-cell-runner-pick');
+      if (selectedCells.includes(idx)) {
+        cell.classList.add('grid-cell-trap');
+      }
+    });
   }
 
   // ─── Timer Button Handler ───
@@ -154,8 +234,8 @@
 
       document.getElementById('lobby-room-code').textContent = data.roomCode;
       document.getElementById('lobby-rounds').textContent = data.maxRounds;
-      document.getElementById('lobby-mode').textContent = data.mode === 'speed' ? '⚡ Speed' : '🙈 Classic';
-      updateLobbyPlayers(data.players);
+      updateLobbyMode(data.mode);
+      updateLobbyPlayers(data.players, data.mode);
       showHostControls('lobby', true);
 
       UI.showView('lobby');
@@ -171,8 +251,8 @@
 
       document.getElementById('lobby-room-code').textContent = data.roomCode;
       document.getElementById('lobby-rounds').textContent = data.maxRounds;
-      document.getElementById('lobby-mode').textContent = data.mode === 'speed' ? '⚡ Speed' : '🙈 Classic';
-      updateLobbyPlayers(data.players);
+      updateLobbyMode(data.mode);
+      updateLobbyPlayers(data.players, data.mode);
       showHostControls('lobby', false);
 
       UI.showView('lobby');
@@ -181,13 +261,13 @@
 
     // Player joined (broadcast to others)
     Socket.on('player-joined', (data) => {
-      updateLobbyPlayers(data.players);
+      updateLobbyPlayers(data.players, currentGameMode);
       UI.showToast(`${data.newPlayer} joined!`, 'info');
     });
 
     // Player left
     Socket.on('player-left', (data) => {
-      updateLobbyPlayers(data.players);
+      updateLobbyPlayers(data.players, currentGameMode);
       UI.showToast(`${data.leftPlayer} disconnected`, 'error');
     });
 
@@ -207,9 +287,10 @@
       const currentView = document.querySelector('.view.active')?.id.replace('view-', '');
       if (currentView === 'lobby') showHostControls('lobby', amNewHost);
       if (currentView === 'results') showHostControls('results', amNewHost);
+      if (currentView === 'grid-results') showGridHostControls(amNewHost);
     });
 
-    // Round started
+    // Round started (classic/speed)
     Socket.on('round-started', (data) => {
       const mode = data.mode || 'classic';
       currentGameMode = mode;
@@ -271,7 +352,7 @@
       );
     });
 
-    // Round results
+    // Round results (classic/speed)
     Socket.on('round-results', (data) => {
       document.getElementById('results-round-num').textContent = data.roundNumber;
       document.getElementById('results-target').textContent = data.targetTime.toFixed(1);
@@ -288,13 +369,16 @@
       }
     });
 
+    // ─── Grid Mode Socket Listeners ───
+    setupGridSocketListeners();
+
     // Game reset (play again)
     Socket.on('game-reset', (data) => {
       currentGameMode = data.mode || 'classic';
       document.getElementById('lobby-room-code').textContent = data.roomCode;
       document.getElementById('lobby-rounds').textContent = data.maxRounds;
-      document.getElementById('lobby-mode').textContent = data.mode === 'speed' ? '⚡ Speed' : '🙈 Classic';
-      updateLobbyPlayers(data.players);
+      updateLobbyMode(data.mode);
+      updateLobbyPlayers(data.players, data.mode);
       showHostControls('lobby', Socket.getIsHost());
       UI.showView('lobby');
       UI.showToast('Game reset! Ready for a new session', 'info');
@@ -306,8 +390,153 @@
     });
   }
 
+  // ─── Grid Socket Listeners ───
+  function setupGridSocketListeners() {
+    // Grid round started
+    Socket.on('grid-round-started', (data) => {
+      currentGameMode = 'grid';
+      Game.gridReset();
+      Game.setPlayers(data.players);
+      Game.setRoundInfo(data.roundNumber, data.maxRounds);
+
+      const myId = Socket.getMyId();
+      const isTrapper = (myId === data.trapperId);
+      Game.gridSetIsTrapper(isTrapper);
+      Game.gridSetPhase('trapper-picking');
+
+      // Update round info
+      document.getElementById('grid-round-num').textContent = data.roundNumber;
+      document.getElementById('grid-max-rounds').textContent = data.maxRounds;
+
+      // Update role badge
+      const roleBadge = document.getElementById('grid-role-badge');
+      const roleIcon = document.getElementById('grid-role-icon');
+      const roleText = document.getElementById('grid-role-text');
+      const roleDesc = document.getElementById('grid-role-desc');
+
+      if (isTrapper) {
+        roleBadge.className = 'grid-role-badge role-trapper';
+        roleIcon.textContent = '🪤';
+        roleText.textContent = 'You are the Trapper';
+        roleDesc.textContent = 'Select 4 cells to set your traps';
+        document.getElementById('grid-counter').style.display = 'block';
+        document.getElementById('grid-selected-count').textContent = '0';
+        document.getElementById('btn-grid-confirm').style.display = 'inline-flex';
+        document.getElementById('btn-grid-confirm').disabled = true;
+        document.getElementById('grid-waiting').style.display = 'none';
+        document.getElementById('grid-hint').textContent = 'Choose 4 cells to trap runners. They won\'t see your picks!';
+      } else {
+        roleBadge.className = 'grid-role-badge role-runner';
+        roleIcon.textContent = '🏃';
+        roleText.textContent = 'You are a Runner';
+        roleDesc.textContent = `${data.trapperName} is setting traps...`;
+        document.getElementById('grid-counter').style.display = 'none';
+        document.getElementById('btn-grid-confirm').style.display = 'none';
+        document.getElementById('grid-waiting').style.display = 'flex';
+        document.getElementById('grid-waiting-text').textContent = `Waiting for ${data.trapperName} to set traps...`;
+        document.getElementById('grid-hint').textContent = `${data.trapperName} is placing 4 traps on the grid. You\'ll pick a cell next!`;
+      }
+
+      // Reset grid board
+      document.querySelectorAll('#grid-board .grid-cell').forEach(cell => {
+        cell.className = 'grid-cell';
+        if (!isTrapper) {
+          cell.classList.add('grid-cell-disabled');
+        }
+      });
+
+      // Render player status dots
+      UI.renderPlayerStatusDots(
+        document.getElementById('grid-players-status'),
+        data.players,
+        []
+      );
+
+      UI.showView('grid-game');
+    });
+
+    // Traps locked — runners can now pick
+    Socket.on('grid-traps-locked', (data) => {
+      Game.gridSetPhase('runners-picking');
+
+      if (!Game.gridGetIsTrapper()) {
+        // Enable grid cells for runner
+        document.querySelectorAll('#grid-board .grid-cell').forEach(cell => {
+          cell.classList.remove('grid-cell-disabled');
+        });
+        document.getElementById('grid-waiting').style.display = 'none';
+        document.getElementById('grid-role-desc').textContent = 'Pick 1 cell — avoid the traps!';
+        document.getElementById('grid-hint').textContent = 'The trapper has placed 4 traps. Pick a safe cell!';
+      }
+
+      UI.showToast(data.message, 'info');
+    });
+
+    // Runner submitted their pick
+    Socket.on('grid-runner-submitted', (data) => {
+      Game.gridAddSubmittedRunner(data.playerId);
+      UI.renderPlayerStatusDots(
+        document.getElementById('grid-players-status'),
+        Game.getPlayers(),
+        Game.gridGetSubmittedRunners()
+      );
+    });
+
+    // Grid round results
+    Socket.on('grid-round-results', (data) => {
+      document.getElementById('grid-results-round-num').textContent = data.roundNumber;
+      document.getElementById('grid-results-trapper').textContent = data.trapperName;
+
+      // Render reveal board
+      UI.renderGridReveal(
+        document.getElementById('grid-board-reveal'),
+        data.trapCells,
+        data.runnerResults,
+        Game.getPlayers()
+      );
+
+      // Render outcomes
+      UI.renderGridOutcomes(document.getElementById('grid-outcomes'), data.runnerResults);
+
+      // Render trapper score
+      UI.renderGridTrapperScore(
+        document.getElementById('grid-trapper-score'),
+        data.trapperName,
+        data.trapperScore,
+        data.caughtCount,
+        data.runnerResults.length
+      );
+
+      // Render standings
+      UI.renderStandings(document.getElementById('grid-standings-list'), data.standings);
+
+      if (data.isLastRound) {
+        showFinalResults(data.standings);
+      } else {
+        showGridHostControls(Socket.getIsHost());
+        UI.showView('grid-results');
+      }
+    });
+  }
+
   // ─── Helpers ───
-  function updateLobbyPlayers(players) {
+  function updateLobbyMode(mode) {
+    const modeEl = document.getElementById('lobby-mode');
+    const gridInfo = document.getElementById('grid-mode-info');
+
+    if (mode === 'speed') {
+      modeEl.textContent = '⚡ Speed';
+      gridInfo.style.display = 'none';
+    } else if (mode === 'grid') {
+      modeEl.textContent = '🔲 Grid';
+      gridInfo.style.display = 'block';
+    } else {
+      modeEl.textContent = '🙈 Classic';
+      gridInfo.style.display = 'none';
+    }
+  }
+
+  function updateLobbyPlayers(players, mode) {
     Game.setPlayers(players);
 
     // Determine hostId from players if we don't have it
@@ -318,7 +547,8 @@
       hostId
     );
 
-    document.getElementById('lobby-player-count').textContent = `${players.length}/15`;
+    const maxPlayers = mode === 'grid' ? 5 : 15;
+    document.getElementById('lobby-player-count').textContent = `${players.length}/${maxPlayers}`;
   }
 
   function showHostControls(view, isHost) {
@@ -329,6 +559,11 @@
       document.getElementById('results-host-controls').style.display = isHost ? 'block' : 'none';
       document.getElementById('results-waiting').style.display = isHost ? 'none' : 'flex';
     }
+  }
+
+  function showGridHostControls(isHost) {
+    document.getElementById('grid-results-host-controls').style.display = isHost ? 'block' : 'none';
+    document.getElementById('grid-results-waiting').style.display = isHost ? 'none' : 'flex';
   }
 
   function showFinalResults(standings) {
