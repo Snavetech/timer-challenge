@@ -7,7 +7,9 @@
 
   // ─── State ───
   let selectedRounds = 3;
+  let selectedMode = 'classic';
   let hostId = null;
+  let currentGameMode = 'classic';
 
   // ─── Init ───
   function init() {
@@ -37,6 +39,15 @@
     document.getElementById('btn-back-create').addEventListener('click', () => UI.showView('landing'));
     document.getElementById('btn-back-join').addEventListener('click', () => UI.showView('landing'));
 
+    // Mode selector
+    document.querySelectorAll('.mode-option').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.mode-option').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedMode = btn.dataset.mode;
+      });
+    });
+
     // Rounds selector
     document.querySelectorAll('.round-option').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -51,7 +62,7 @@
       e.preventDefault();
       const username = document.getElementById('create-username').value.trim();
       if (!username) return UI.showToast('Please enter your name', 'error');
-      Socket.createRoom(username, selectedRounds);
+      Socket.createRoom(username, selectedRounds, selectedMode);
     });
 
     // Join room form
@@ -105,7 +116,14 @@
       Game.startTimer();
       btn.dataset.state = 'running';
       btn.querySelector('.timer-btn-text').textContent = 'TAP TO STOP';
-      document.getElementById('timer-hint').textContent = 'Timer is running... Stop when you feel the target time has elapsed!';
+
+      // Show live timer for speed mode
+      if (currentGameMode === 'speed') {
+        document.getElementById('live-timer-section').style.display = 'flex';
+        document.getElementById('timer-hint').textContent = 'Watch the timer — stop it as close to the target as you can!';
+      } else {
+        document.getElementById('timer-hint').textContent = 'Timer is running... Stop when you feel the target time has elapsed!';
+      }
     } else if (state === 'running') {
       // Stop the timer
       const elapsed = Game.stopTimer();
@@ -113,6 +131,12 @@
         btn.dataset.state = 'stopped';
         btn.querySelector('.timer-btn-text').textContent = 'STOPPED';
         document.getElementById('timer-hint').textContent = 'Your time has been submitted. Waiting for other players...';
+
+        // Freeze the live timer display
+        if (currentGameMode === 'speed') {
+          document.getElementById('live-timer-value').textContent = elapsed.toFixed(3);
+        }
+
         Socket.playerStop(elapsed);
       }
     }
@@ -126,9 +150,11 @@
       Socket.setRoomCode(data.roomCode);
       Socket.setIsHost(true);
       hostId = Socket.getMyId();
+      currentGameMode = data.mode || 'classic';
 
       document.getElementById('lobby-room-code').textContent = data.roomCode;
       document.getElementById('lobby-rounds').textContent = data.maxRounds;
+      document.getElementById('lobby-mode').textContent = data.mode === 'speed' ? '⚡ Speed' : '🙈 Classic';
       updateLobbyPlayers(data.players);
       showHostControls('lobby', true);
 
@@ -140,10 +166,12 @@
     Socket.on('room-joined', (data) => {
       Socket.setRoomCode(data.roomCode);
       Socket.setIsHost(false);
-      hostId = null; // Will get from player list
+      hostId = null;
+      currentGameMode = data.mode || 'classic';
 
       document.getElementById('lobby-room-code').textContent = data.roomCode;
       document.getElementById('lobby-rounds').textContent = data.maxRounds;
+      document.getElementById('lobby-mode').textContent = data.mode === 'speed' ? '⚡ Speed' : '🙈 Classic';
       updateLobbyPlayers(data.players);
       showHostControls('lobby', false);
 
@@ -183,7 +211,11 @@
 
     // Round started
     Socket.on('round-started', (data) => {
+      const mode = data.mode || 'classic';
+      currentGameMode = mode;
+
       Game.reset();
+      Game.setMode(mode);
       Game.setTarget(data.targetTime);
       Game.setRoundInfo(data.roundNumber, data.maxRounds);
       Game.setPlayers(data.players);
@@ -193,11 +225,31 @@
       document.getElementById('game-max-rounds').textContent = data.maxRounds;
       document.getElementById('game-target-time').textContent = data.targetTime.toFixed(1);
 
+      // Update mode badge
+      if (mode === 'speed') {
+        document.getElementById('game-mode-badge').classList.add('mode-badge-speed');
+        document.getElementById('game-mode-badge').querySelector('.mode-badge-icon').textContent = '⚡';
+        document.getElementById('game-mode-label').textContent = 'Speed';
+      } else {
+        document.getElementById('game-mode-badge').classList.remove('mode-badge-speed');
+        document.getElementById('game-mode-badge').querySelector('.mode-badge-icon').textContent = '🙈';
+        document.getElementById('game-mode-label').textContent = 'Classic';
+      }
+
+      // Reset live timer display
+      document.getElementById('live-timer-section').style.display = 'none';
+      document.getElementById('live-timer-value').textContent = '0.000';
+
       // Reset timer button
       const btn = document.getElementById('btn-timer');
       btn.dataset.state = 'ready';
       btn.querySelector('.timer-btn-text').textContent = 'TAP TO START';
-      document.getElementById('timer-hint').textContent = 'Press the button to start, then press again when you think the target time has elapsed';
+
+      if (mode === 'speed') {
+        document.getElementById('timer-hint').textContent = 'Press start, then stop the timer when it reaches the target time!';
+      } else {
+        document.getElementById('timer-hint').textContent = 'Press the button to start, then press again when you think the target time has elapsed';
+      }
 
       // Reset player status dots
       UI.renderPlayerStatusDots(
@@ -238,8 +290,10 @@
 
     // Game reset (play again)
     Socket.on('game-reset', (data) => {
+      currentGameMode = data.mode || 'classic';
       document.getElementById('lobby-room-code').textContent = data.roomCode;
       document.getElementById('lobby-rounds').textContent = data.maxRounds;
+      document.getElementById('lobby-mode').textContent = data.mode === 'speed' ? '⚡ Speed' : '🙈 Classic';
       updateLobbyPlayers(data.players);
       showHostControls('lobby', Socket.getIsHost());
       UI.showView('lobby');

@@ -27,13 +27,15 @@ function generateRoomCode() {
   return code;
 }
 
-function createRoom(hostId, hostName, rounds) {
+function createRoom(hostId, hostName, rounds, mode) {
   const code = generateRoomCode();
+  const validMode = (mode === 'speed') ? 'speed' : 'classic';
   const room = {
     code,
     hostId,
     hostName,
     maxRounds: Math.min(Math.max(parseInt(rounds) || 3, 1), 5),
+    mode: validMode,
     currentRound: 0,
     state: 'lobby', // lobby | playing | results | finished
     players: new Map(),
@@ -88,8 +90,14 @@ function getPlayerList(room) {
 function startRound(room) {
   room.currentRound++;
   room.state = 'playing';
-  // Random target between 1 and 90 seconds (to 1 decimal)
-  room.targetTime = Math.round((Math.random() * 89 + 1) * 10) / 10;
+
+  if (room.mode === 'speed') {
+    // Speed mode: target between 1 and 120 seconds (to 1 decimal)
+    room.targetTime = Math.round((Math.random() * 119 + 1) * 10) / 10;
+  } else {
+    // Classic mode: target between 1 and 90 seconds (to 1 decimal)
+    room.targetTime = Math.round((Math.random() * 89 + 1) * 10) / 10;
+  }
 
   const roundData = {
     roundNumber: room.currentRound,
@@ -224,7 +232,7 @@ setInterval(() => {
 io.on('connection', (socket) => {
   let currentRoom = null;
 
-  socket.on('create-room', ({ username, rounds }) => {
+  socket.on('create-room', ({ username, rounds, mode }) => {
     if (!username || username.trim().length === 0) {
       socket.emit('error-msg', { message: 'Username is required' });
       return;
@@ -234,7 +242,7 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const room = createRoom(socket.id, username.trim(), rounds);
+    const room = createRoom(socket.id, username.trim(), rounds, mode);
     const result = addPlayer(room.code, socket.id, username.trim());
 
     if (result.error) {
@@ -248,6 +256,7 @@ io.on('connection', (socket) => {
     socket.emit('room-created', {
       roomCode: room.code,
       maxRounds: room.maxRounds,
+      mode: room.mode,
       players: getPlayerList(room),
       isHost: true
     });
@@ -282,6 +291,7 @@ io.on('connection', (socket) => {
     socket.emit('room-joined', {
       roomCode: code,
       maxRounds: room.maxRounds,
+      mode: room.mode,
       hostName: room.hostName,
       players: getPlayerList(room),
       isHost: false
@@ -313,6 +323,7 @@ io.on('connection', (socket) => {
       roundNumber: roundData.roundNumber,
       targetTime: roundData.targetTime,
       maxRounds: room.maxRounds,
+      mode: room.mode,
       players: getPlayerList(room)
     });
   });
@@ -348,6 +359,7 @@ io.on('connection', (socket) => {
       roundNumber: roundData.roundNumber,
       targetTime: roundData.targetTime,
       maxRounds: room.maxRounds,
+      mode: room.mode,
       players: getPlayerList(room)
     });
   });
@@ -369,6 +381,7 @@ io.on('connection', (socket) => {
     io.to(roomCode).emit('game-reset', {
       roomCode: room.code,
       maxRounds: room.maxRounds,
+      mode: room.mode,
       players: getPlayerList(room)
     });
   });

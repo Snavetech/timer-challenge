@@ -36,14 +36,14 @@ const Socket = (() => {
     return socket;
   }
 
-  function createRoom(username, rounds) {
+  function createRoom(username, rounds, mode) {
     if (!socket || !connected) {
       console.error('[Socket] Not connected, cannot create room');
       UI.showToast('Not connected to server. Please wait...', 'error');
       return;
     }
-    console.log('[Socket] Emitting create-room:', { username, rounds });
-    socket.emit('create-room', { username, rounds });
+    console.log('[Socket] Emitting create-room:', { username, rounds, mode });
+    socket.emit('create-room', { username, rounds, mode });
   }
 
   function joinRoom(code, username) {

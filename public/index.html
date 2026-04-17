@@ -63,6 +63,21 @@
             <input type="text" id="create-username" placeholder="Enter your name" maxlength="20" required>
           </div>
           <div class="form-group">
+            <label>Game Mode</label>
+            <div class="mode-selector" id="mode-selector">
+              <button type="button" class="mode-option active" data-mode="classic">
+                <span class="mode-icon">🙈</span>
+                <span class="mode-name">Classic</span>
+                <span class="mode-desc">Hidden timer</span>
+              </button>
+              <button type="button" class="mode-option" data-mode="speed">
+                <span class="mode-icon">⚡</span>
+                <span class="mode-name">Speed</span>
+                <span class="mode-desc">Visible timer</span>
+              </button>
+            </div>
+          </div>
+          <div class="form-group">
             <label>Number of Rounds</label>
             <div class="rounds-selector" id="rounds-selector">
               <button type="button" class="round-option" data-rounds="1">1</button>
@@ -116,6 +131,10 @@
 
           <div class="lobby-details">
             <div class="detail-chip">
+              <span class="detail-label">Mode</span>
+              <span class="detail-value" id="lobby-mode">Classic</span>
+            </div>
+            <div class="detail-chip">
               <span class="detail-label">Rounds</span>
               <span class="detail-value" id="lobby-rounds">3</span>
             </div>
@@ -145,8 +164,14 @@
     <section id="view-game" class="view">
       <div class="game-container">
         <div class="game-header">
-          <div class="round-badge">
-            Round <span id="game-round-num">1</span> of <span id="game-max-rounds">3</span>
+          <div class="game-header-left">
+            <div class="round-badge">
+              Round <span id="game-round-num">1</span> of <span id="game-max-rounds">3</span>
+            </div>
+            <div class="mode-badge" id="game-mode-badge">
+              <span class="mode-badge-icon">🙈</span>
+              <span id="game-mode-label">Classic</span>
+            </div>
           </div>
           <div class="game-players-status" id="game-players-status"></div>
         </div>
@@ -155,6 +180,14 @@
           <span class="target-label">Stop at exactly</span>
           <div class="target-time" id="game-target-time">0.0</div>
           <span class="target-unit">seconds</span>
+        </div>
+
+        <!-- Live Timer Display (Speed Mode Only) -->
+        <div class="live-timer-section" id="live-timer-section" style="display: none;">
+          <div class="live-timer-display">
+            <div class="live-timer-value" id="live-timer-value">0.000</div>
+            <div class="live-timer-label">seconds</div>
+          </div>
         </div>
 
         <div class="timer-button-container">

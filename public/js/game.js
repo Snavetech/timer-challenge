@@ -10,6 +10,16 @@ const Game = (() => {
   let maxRounds = 3;
   let submittedPlayers = [];
   let players = [];
+  let gameMode = 'classic'; // 'classic' or 'speed'
+  let liveTimerRAF = null;
+
+  function setMode(mode) {
+    gameMode = mode || 'classic';
+  }
+
+  function getMode() {
+    return gameMode;
+  }
 
   function setTarget(target) {
     currentTarget = target;
@@ -23,6 +33,11 @@ const Game = (() => {
   function startTimer() {
     timerStartTime = performance.now();
     timerRunning = true;
+
+    // If speed mode, start live timer animation
+    if (gameMode === 'speed') {
+      startLiveTimerLoop();
+    }
   }
 
   function stopTimer() {
@@ -30,6 +45,13 @@ const Game = (() => {
     const elapsed = (performance.now() - timerStartTime) / 1000;
     timerRunning = false;
     timerStartTime = null;
+
+    // Stop live timer animation
+    if (liveTimerRAF) {
+      cancelAnimationFrame(liveTimerRAF);
+      liveTimerRAF = null;
+    }
+
     return Math.round(elapsed * 100) / 100; // 2 decimal precision
   }
 
@@ -46,6 +68,10 @@ const Game = (() => {
     timerStartTime = null;
     timerRunning = false;
     submittedPlayers = [];
+    if (liveTimerRAF) {
+      cancelAnimationFrame(liveTimerRAF);
+      liveTimerRAF = null;
+    }
   }
 
   function setPlayers(p) {
@@ -66,7 +92,28 @@ const Game = (() => {
     return submittedPlayers;
   }
 
+  // ─── Live Timer Loop (Speed Mode) ───
+  function startLiveTimerLoop() {
+    const timerValueEl = document.getElementById('live-timer-value');
+
+    function tick() {
+      if (!timerRunning || !timerStartTime) return;
+
+      const elapsed = (performance.now() - timerStartTime) / 1000;
+      // Update displayed value with milliseconds
+      if (timerValueEl) {
+        timerValueEl.textContent = elapsed.toFixed(3);
+      }
+
+      liveTimerRAF = requestAnimationFrame(tick);
+    }
+
+    liveTimerRAF = requestAnimationFrame(tick);
+  }
+
   return {
+    setMode,
+    getMode,
     setTarget,
     setRoundInfo,
     startTimer,
