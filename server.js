@@ -321,9 +321,9 @@ function submitGridRunnerChoice(room, playerId, cells) {
 
   if (room.gridState.runnerSelections.has(playerId)) return { error: 'Already submitted' };
   
-  if (!Array.isArray(cells) || cells.length !== 2) return { error: 'Must select exactly 2 cells' };
+  if (!Array.isArray(cells) || cells.length !== 4) return { error: 'Must select exactly 4 cells' };
   const uniqueCells = [...new Set(cells)];
-  if (uniqueCells.length !== 2) return { error: 'Cells must be unique' };
+  if (uniqueCells.length !== 4) return { error: 'Cells must be unique' };
   if (uniqueCells.some(c => c < 0 || c > 8 || !Number.isInteger(c))) return { error: 'Invalid cell index' };
 
   room.gridState.runnerSelections.set(playerId, uniqueCells);
@@ -374,8 +374,8 @@ function endGridRound(room) {
   for (const runnerId of runners) {
     const player = room.players.get(runnerId);
     if (!room.gridState.runnerSelections.has(runnerId) && player?.connected) {
-      // DNF penalty: forced to pick 2 unique traps
-      const dnfCells = trapCells.slice(0, 2);
+      // DNF penalty: forced to pick 4 unique traps
+      const dnfCells = trapCells.slice(0, 4);
       room.gridState.runnerSelections.set(runnerId, dnfCells);
       dnfs.add(runnerId);
     }
@@ -399,8 +399,8 @@ function endGridRound(room) {
     }
 
     let runnerScore = (safe * 10) - (hits * 12);
-    if (safe === 2) runnerScore += 10;
-    if (hits === 2) runnerScore -= 5;
+    if (safe === 4) runnerScore += 10;
+    if (hits === 4) runnerScore -= 5;
     
     if (hits === 0) allRunnersHit = false;
     if (hits > 0) {

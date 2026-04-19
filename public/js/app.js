@@ -131,8 +131,8 @@
         document.getElementById('grid-hint').textContent = 'Your traps are locked in. Waiting for runners to choose...';
       } else {
         const cells = Game.gridGetRunnerCells();
-        if (cells.length !== 2) {
-          UI.showToast('Select exactly 2 cells', 'error');
+        if (cells.length !== 4) {
+          UI.showToast('Select exactly 4 cells', 'error');
           return;
         }
         Game.gridSetPhase('submitted');
@@ -183,7 +183,7 @@
       });
       
       document.getElementById('grid-selected-count').textContent = selected.length;
-      document.getElementById('btn-grid-confirm').disabled = selected.length !== 2;
+      document.getElementById('btn-grid-confirm').disabled = selected.length !== 4;
     }
   }
 
@@ -483,15 +483,15 @@
         
         document.getElementById('grid-counter').style.display = 'block';
         document.getElementById('grid-selected-count').textContent = '0';
-        document.getElementById('grid-counter-total').textContent = '2';
+        document.getElementById('grid-counter-total').textContent = '4';
         document.getElementById('grid-counter-label').textContent = 'cells picked';
         
         document.getElementById('btn-grid-confirm').style.display = 'inline-flex';
         document.getElementById('btn-grid-confirm').disabled = true;
         document.getElementById('btn-grid-confirm').innerHTML = '🏃 Confirm Picks';
 
-        document.getElementById('grid-role-desc').textContent = 'Pick 2 cells — avoid the traps!';
-        document.getElementById('grid-hint').textContent = 'The trapper has placed 4 traps. Pick 2 safe cells!';
+        document.getElementById('grid-role-desc').textContent = 'Pick 4 cells — avoid the traps!';
+        document.getElementById('grid-hint').textContent = 'The trapper has placed 4 traps. Pick 4 safe cells!';
       }
 
       UI.showToast(data.message, 'info');
