@@ -160,7 +160,7 @@ const Game = (() => {
     const idx = gridRunnerCells.indexOf(cellIndex);
     if (idx !== -1) {
       gridRunnerCells.splice(idx, 1);
-    } else if (gridRunnerCells.length < 2) {
+    } else if (gridRunnerCells.length < 4) {
       gridRunnerCells.push(cellIndex);
     }
     return gridRunnerCells;
