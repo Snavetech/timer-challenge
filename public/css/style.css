@@ -360,6 +360,43 @@ body {
   color: var(--accent);
 }
 
+.btn-music {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  transition: all var(--transition-base);
+}
+
+.btn-music:hover {
+  transform: scale(1.1) rotate(5deg);
+  border-color: var(--accent);
+  box-shadow: 0 0 20px rgba(0, 242, 254, 0.3);
+}
+
+.btn-music.playing .music-icon {
+  animation: pulseMusic 2s infinite alternate;
+}
+
+@keyframes pulseMusic {
+  from { text-shadow: 0 0 10px rgba(0, 242, 254, 0.2); transform: scale(1); }
+  to { text-shadow: 0 0 20px rgba(0, 242, 254, 0.6); transform: scale(1.15); color: var(--accent); }
+}
+
 /* ═══════════════════════════════════════════
    CARDS & FORMS
    ═══════════════════════════════════════════ */

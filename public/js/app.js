@@ -35,6 +35,25 @@
     document.getElementById('btn-create').addEventListener('click', () => UI.showView('create'));
     document.getElementById('btn-join').addEventListener('click', () => UI.showView('join'));
 
+    // Global Music Control
+    const btnMusic = document.getElementById('btn-music-toggle');
+    const bgMusic = document.getElementById('bg-music');
+    if (btnMusic && bgMusic) {
+      bgMusic.volume = 0.4;
+      btnMusic.addEventListener('click', () => {
+        if (bgMusic.paused) {
+          bgMusic.play().then(() => {
+            btnMusic.classList.add('playing');
+            btnMusic.querySelector('.music-icon').textContent = '🔊';
+          }).catch(e => console.log('Audio play failed', e));
+        } else {
+          bgMusic.pause();
+          btnMusic.classList.remove('playing');
+          btnMusic.querySelector('.music-icon').textContent = '🔇';
+        }
+      });
+    }
+
     // Back buttons
     document.getElementById('btn-back-create').addEventListener('click', () => UI.showView('landing'));
     document.getElementById('btn-back-join').addEventListener('click', () => UI.showView('landing'));
