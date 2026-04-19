@@ -46,6 +46,7 @@ function createRoom(hostId, hostName, rounds, mode) {
     // Grid mode state
     gridState: validMode === 'grid' ? {
       trapperIndex: -1,     // index in player order for rotation
+      currentTrapperId: null, // tracked safely
       trapperCells: [],     // 4 cells selected by trapper
       runnerSelections: new Map(), // playerId -> cell index
       phase: 'idle'         // idle | trapper-picking | runners-picking | reveal
@@ -149,11 +150,16 @@ function submitTime(room, playerId, elapsed) {
 
   // Check if all connected players have submitted
   const connectedPlayers = Array.from(room.players.values()).filter(p => p.connected);
-  if (currentRound.submissions.size >= connectedPlayers.length) {
+  let submittedConnected = 0;
+  for (const p of connectedPlayers) {
+    if (currentRound.submissions.has(p.id)) submittedConnected++;
+  }
+
+  if (submittedConnected >= connectedPlayers.length) {
     return endRound(room);
   }
 
-  return { submitted: true, waiting: connectedPlayers.length - currentRound.submissions.size };
+  return { submitted: true, waiting: connectedPlayers.length - submittedConnected };
 }
 
 function endRound(room) {
@@ -237,11 +243,11 @@ function startGridRound(room) {
 
   // Rotate trapper
   room.gridState.trapperIndex = (room.gridState.trapperIndex + 1) % playerOrder.length;
+  const trapperId = playerOrder[room.gridState.trapperIndex];
+  room.gridState.currentTrapperId = trapperId;
   room.gridState.trapperCells = [];
   room.gridState.runnerSelections = new Map();
   room.gridState.phase = 'trapper-picking';
-
-  const trapperId = playerOrder[room.gridState.trapperIndex];
   const trapperName = room.players.get(trapperId)?.name || 'Unknown';
 
   const roundData = {
@@ -285,8 +291,7 @@ function autoSetTraps(room) {
 }
 
 function submitGridTraps(room, playerId, cells) {
-  const playerOrder = getPlayerOrder(room);
-  const trapperId = playerOrder[room.gridState.trapperIndex];
+  const trapperId = room.gridState.currentTrapperId;
   if (playerId !== trapperId) return { error: 'You are not the trapper' };
   if (room.gridState.phase !== 'trapper-picking') return { error: 'Not in trapper phase' };
 
@@ -311,8 +316,7 @@ function submitGridTraps(room, playerId, cells) {
 function submitGridRunnerChoice(room, playerId, cells) {
   if (room.gridState.phase !== 'runners-picking') return null;
 
-  const playerOrder = getPlayerOrder(room);
-  const trapperId = playerOrder[room.gridState.trapperIndex];
+  const trapperId = room.gridState.currentTrapperId;
   if (playerId === trapperId) return { error: 'Trapper cannot pick cells' };
 
   if (room.gridState.runnerSelections.has(playerId)) return { error: 'Already submitted' };
@@ -325,13 +329,19 @@ function submitGridRunnerChoice(room, playerId, cells) {
   room.gridState.runnerSelections.set(playerId, uniqueCells);
 
   // Check if all runners have submitted
-  const runners = playerOrder.filter(id => id !== trapperId);
-  const connectedRunners = runners.filter(id => room.players.get(id)?.connected);
-  if (room.gridState.runnerSelections.size >= connectedRunners.length) {
+  const playerOrder = getPlayerOrder(room);
+  const connectedRunners = playerOrder.filter(id => id !== trapperId);
+  
+  let submittedConnected = 0;
+  for (const rId of connectedRunners) {
+    if (room.gridState.runnerSelections.has(rId)) submittedConnected++;
+  }
+
+  if (submittedConnected >= connectedRunners.length) {
     return endGridRound(room);
   }
 
-  return { submitted: true, waiting: connectedRunners.length - room.gridState.runnerSelections.size };
+  return { submitted: true, waiting: connectedRunners.length - submittedConnected };
 }
 
 // Grid scoring constants
@@ -346,17 +356,20 @@ function endGridRound(room) {
     room.roundTimeout = null;
   }
 
-  const playerOrder = getPlayerOrder(room);
-  const trapperId = playerOrder[room.gridState.trapperIndex];
+  const trapperId = room.gridState.currentTrapperId;
   const trapperPlayer = room.players.get(trapperId);
   const trapCells = room.gridState.trapperCells;
+  const playerOrder = getPlayerOrder(room);
 
   const runnerResults = [];
   let trapperScore = 0;
   let allRunnersHit = true;
   let someoneHit = false;
+  let caughtCount = 0;
 
   const runners = playerOrder.filter(id => id !== trapperId);
+  const dnfs = new Set();
+  
   // Add DNF entries for runners who didn't submit
   for (const runnerId of runners) {
     const player = room.players.get(runnerId);
@@ -364,6 +377,7 @@ function endGridRound(room) {
       // DNF penalty: forced to pick 2 unique traps
       const dnfCells = trapCells.slice(0, 2);
       room.gridState.runnerSelections.set(runnerId, dnfCells);
+      dnfs.add(runnerId);
     }
   }
 
@@ -389,7 +403,10 @@ function endGridRound(room) {
     if (hits === 2) runnerScore -= 5;
     
     if (hits === 0) allRunnersHit = false;
-    if (hits > 0) someoneHit = true;
+    if (hits > 0) {
+      someoneHit = true;
+      caughtCount++;
+    }
 
     // trapper gains
     if (hits > 0) trapperScore += 8;
@@ -401,7 +418,8 @@ function endGridRound(room) {
       cells,
       hits,
       safe,
-      score: runnerScore
+      score: runnerScore,
+      dnf: dnfs.has(runnerId)
     });
   }
 
@@ -431,6 +449,7 @@ function endGridRound(room) {
     trapperName: trapperPlayer?.name || 'Unknown',
     trapperId,
     trapperScore,
+    caughtCount,
     trapCells,
     runnerResults,
     standings,
@@ -725,13 +744,34 @@ io.on('connection', (socket) => {
 
       // Check if round should end (all connected players submitted)
       if (room.state === 'playing') {
-        const currentRoundData = room.rounds[room.rounds.length - 1];
         const connectedPlayers = Array.from(room.players.values()).filter(p => p.connected);
         if (connectedPlayers.length === 0) {
           rooms.delete(currentRoom);
-        } else if (currentRoundData && currentRoundData.submissions.size >= connectedPlayers.length) {
-          const result = endRound(room);
-          io.to(currentRoom).emit('round-results', result);
+        } else if (room.mode === 'grid') {
+          if (room.gridState && room.gridState.phase === 'runners-picking') {
+            const trapperId = room.gridState.currentTrapperId;
+            const connectedRunners = connectedPlayers.filter(p => p.id !== trapperId);
+            let submittedConnected = 0;
+            for (const p of connectedRunners) {
+              if (room.gridState.runnerSelections.has(p.id)) submittedConnected++;
+            }
+            if (submittedConnected >= connectedRunners.length) {
+              const result = endGridRound(room);
+              io.to(currentRoom).emit('grid-round-results', result);
+            }
+          }
+        } else {
+          const currentRoundData = room.rounds[room.rounds.length - 1];
+          if (currentRoundData) {
+            let submittedConnected = 0;
+            for (const p of connectedPlayers) {
+              if (currentRoundData.submissions.has(p.id)) submittedConnected++;
+            }
+            if (submittedConnected >= connectedPlayers.length) {
+              const result = endRound(room);
+              io.to(currentRoom).emit('round-results', result);
+            }
+          }
         }
       }
 
