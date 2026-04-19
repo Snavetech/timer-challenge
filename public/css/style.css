@@ -558,6 +558,13 @@ body {
   box-shadow: 0 0 20px rgba(255, 171, 0, 0.12), inset 0 0 30px rgba(255, 171, 0, 0.03);
 }
 
+.mode-option.active[data-mode="whot"] {
+  background: rgba(188, 19, 254, 0.06);
+  border-color: #bc13fe;
+  color: #bc13fe;
+  box-shadow: 0 0 20px rgba(188, 19, 254, 0.12), inset 0 0 30px rgba(188, 19, 254, 0.03);
+}
+
 .mode-icon {
   font-size: 1.8rem;
   line-height: 1;
