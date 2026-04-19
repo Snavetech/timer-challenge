@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const whotEngine = require('./whotEngine');
 
 const app = express();
 const server = http.createServer(app);
@@ -29,7 +30,7 @@ function generateRoomCode() {
 
 function createRoom(hostId, hostName, rounds, mode) {
   const code = generateRoomCode();
-  const validMode = ['speed', 'grid'].includes(mode) ? mode : 'classic';
+  const validMode = ['speed', 'grid', 'whot'].includes(mode) ? mode : 'classic';
   const room = {
     code,
     hostId,
@@ -50,7 +51,9 @@ function createRoom(hostId, hostName, rounds, mode) {
       trapperCells: [],     // 4 cells selected by trapper
       runnerSelections: new Map(), // playerId -> cell index
       phase: 'idle'         // idle | trapper-picking | runners-picking | reveal
-    } : null
+    } : null,
+    // Whot mode state
+    whotState: validMode === 'whot' ? {} : null
   };
   rooms.set(code, room);
   return room;
@@ -99,6 +102,11 @@ function getPlayerList(room) {
 function startRound(room) {
   room.currentRound++;
   room.state = 'playing';
+
+  if (room.mode === 'whot') {
+    room.whotState = whotEngine.setupWhotState(room.players);
+    return { roundNumber: room.currentRound, mode: 'whot' };
+  }
 
   if (room.mode === 'speed') {
     // Speed mode: target between 1 and 120 seconds (to 1 decimal)
@@ -585,6 +593,26 @@ io.on('connection', (socket) => {
       return;
     }
 
+    if (room.mode === 'whot') {
+      if (room.players.size < 2) {
+        socket.emit('error-msg', { message: 'Need at least 2 players for Whot mode' });
+        return;
+      }
+      const roundData = startRound(room); // Handles whot setup
+      
+      // Emit the hands specifically to each user
+      for (const [pId, hand] of room.whotState.hands) {
+        io.to(pId).emit('whot-round-started', {
+          roundNumber: roundData.roundNumber,
+          hand: hand,
+          discardPile: room.whotState.discardPile,
+          turnIndex: room.whotState.turnIndex,
+          playerIds: room.whotState.playerIds
+        });
+      }
+      return;
+    }
+
     if (room.players.size < 1) {
       socket.emit('error-msg', { message: 'Need at least 1 player to start' });
       return;
@@ -790,7 +818,80 @@ io.on('connection', (socket) => {
       }, 60000);
     }
   });
+  socket.on('whot-play-card', ({ roomCode, cardId, declaredShape }) => {
+    const room = rooms.get(roomCode);
+    if (!room || room.mode !== 'whot' || !room.whotState) return;
+
+    const result = whotEngine.processPlayCard(room.whotState, socket.id, cardId, declaredShape);
+    if (result.error) {
+      socket.emit('error-msg', { message: result.error });
+      return;
+    }
+
+    if (result.action === 'win') {
+      const penalties = whotEngine.calculatePenalties(room.whotState.hands);
+      for (const [pId, penalty] of penalties) {
+        const player = room.players.get(pId);
+        if (player) {
+          player.totalScore += penalty;
+          player.roundsPlayed = (player.roundsPlayed || 0) + 1;
+          if (penalty === 0) player.roundWins = (player.roundWins || 0) + 1;
+        }
+      }
+      
+      io.to(roomCode).emit('whot-round-over', {
+        winnerId: socket.id,
+        penalties: Array.from(penalties.entries()),
+        players: getPlayerList(room).sort((a,b) => {
+          if (a.totalScore !== b.totalScore) return a.totalScore - b.totalScore;
+          if ((b.roundWins||0) !== (a.roundWins||0)) return (b.roundWins||0) - (a.roundWins||0);
+          return (a.roundsPlayed||0) - (b.roundsPlayed||0);
+        })
+      });
+      room.state = 'results';
+    } else {
+      io.to(roomCode).emit('whot-card-played', {
+        playerId: socket.id,
+        card: result.card,
+        isAttack: room.whotState.attack.active,
+        newState: getWhotPublicState(room.whotState)
+      });
+    }
+  });
+
+  socket.on('whot-draw-card', ({ roomCode }) => {
+    const room = rooms.get(roomCode);
+    if (!room || room.mode !== 'whot' || !room.whotState) return;
+    
+    const result = whotEngine.processDrawCard(room.whotState, socket.id);
+    if (result.error) {
+      socket.emit('error-msg', { message: result.error });
+      return;
+    }
+
+    const hand = room.whotState.hands.get(socket.id);
+    socket.emit('whot-hand-updated', { hand });
+    
+    io.to(roomCode).emit('whot-player-drew', {
+      playerId: socket.id,
+      drawCount: result.drawCount,
+      drewForAttack: result.drewForAttack,
+      newState: getWhotPublicState(room.whotState)
+    });
+  });
 });
+
+function getWhotPublicState(state) {
+  const handsCounts = Array.from(state.hands.entries()).map(([id, hand]) => ({ id, count: hand.length }));
+  return {
+    discardTop: state.discardPile[state.discardPile.length - 1],
+    declaredShape: state.declaredShape,
+    turnIndex: state.turnIndex,
+    attackActive: state.attack.active,
+    attackCount: state.attack.stackCount,
+    handsCounts
+  };
+}
 
 // ─── Start Server ────────────────────────────────────────────────
 
