@@ -75,7 +75,7 @@
           </div>
           <div class="form-group">
             <label>Game Mode</label>
-            <div class="mode-selector mode-selector-4" id="mode-selector">
+            <div class="mode-selector mode-selector-5" id="mode-selector">
               <button type="button" class="mode-option active" data-mode="classic">
                 <span class="mode-icon">🙈</span>
                 <span class="mode-name">Classic</span>
@@ -86,12 +86,17 @@
                 <span class="mode-name">Speed</span>
                 <span class="mode-desc">Visible timer</span>
               </button>
+              <button type="button" class="mode-option" data-mode="tap">
+                <span class="mode-icon">👆</span>
+                <span class="mode-name">Tap</span>
+                <span class="mode-desc">Tapping race</span>
+              </button>
               <button type="button" class="mode-option" data-mode="grid">
                 <span class="mode-icon">🔲</span>
                 <span class="mode-name">Grid</span>
                 <span class="mode-desc">Avoid traps</span>
               </button>
-              <button type="button" class="mode-option" data-mode="whot">
+              <button type="button" class="mode-option" data-mode="whot" style="display: none;">
                 <span class="mode-icon">🃏</span>
                 <span class="mode-name">Whot</span>
                 <span class="mode-desc">Naija Card Game</span>
@@ -226,6 +231,58 @@
 
         <div class="timer-hint" id="timer-hint">
           Press the button to start, then press again when you think the target time has elapsed
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── WHOT GAME VIEW ─── -->
+    <section id="view-game-whot" class="view">
+      <div class="whot-container">
+        <div class="whot-header">
+           <div class="round-badge">
+             Round <span id="whot-round-num">1</span> of <span id="whot-max-rounds">3</span>
+           </div>
+           <div class="mode-badge">
+             <span class="mode-badge-icon">🃏</span>
+             <span>Whot</span>
+           </div>
+        </div>
+
+        <div class="whot-opponents" id="whot-opponents"></div>
+        
+        <div class="whot-board">
+          <div class="whot-pile whot-deck" id="whot-deck" title="Draw Card">
+            <div class="whot-card-back">WHOT</div>
+          </div>
+          <div class="whot-pile whot-discard" id="whot-discard"></div>
+          
+          <div class="whot-alerts">
+            <div class="whot-alert attack" id="whot-attack-banner" style="display: none;">
+              ⚠️ ATTACK: Pick <span id="whot-attack-type"></span> (Stack: <span id="whot-attack-stack"></span>)
+            </div>
+            <div class="whot-alert shape" id="whot-shape-indicator" style="display: none;">
+              Active Shape: <span id="whot-active-shape"></span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="whot-player-area">
+          <h3 class="whot-turn-indicator" id="whot-turn-indicator">Waiting for turn...</h3>
+          <div class="whot-hand" id="whot-hand"></div>
+        </div>
+
+        <div class="whot-modal-overlay" id="whot-shape-modal" style="display: none;">
+          <div class="whot-modal">
+            <h3>Declare Shape</h3>
+            <p>Select a shape for the next player to follow</p>
+            <div class="whot-shape-options">
+              <button class="shape-btn" data-shape="circle">⭕<br>Circle</button>
+              <button class="shape-btn" data-shape="triangle">🔺<br>Triangle</button>
+              <button class="shape-btn" data-shape="cross">➕<br>Cross</button>
+              <button class="shape-btn" data-shape="square">🟦<br>Square</button>
+              <button class="shape-btn" data-shape="star">⭐<br>Star</button>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -409,6 +466,48 @@
             <div class="pulse-dot"></div>
             <span>Waiting for host to start next round...</span>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── TAP GAMEPLAY VIEW ─── -->
+    <section id="view-tap-game" class="view">
+      <div class="game-container">
+        <div class="game-header">
+          <div class="game-header-left">
+            <div class="round-badge">
+              Round <span id="tap-round-num">1</span> of <span id="tap-max-rounds">3</span>
+            </div>
+            <div class="mode-badge mode-badge-tap">
+              <span class="mode-badge-icon">👆</span>
+              <span>Tap</span>
+            </div>
+          </div>
+          <div class="game-players-status" id="tap-players-status"></div>
+        </div>
+
+        <div class="tap-info-section">
+          <div class="tap-countdown-container">
+            <span class="tap-countdown-label">Remaining</span>
+            <div class="tap-countdown-value" id="tap-timer">0.0</div>
+          </div>
+          <div class="tap-counter-container">
+            <span class="tap-counter-label">Taps</span>
+            <div class="tap-counter-value" id="tap-count">0</div>
+          </div>
+        </div>
+
+        <div class="tap-area-container">
+          <button id="btn-tap-area" class="tap-area">
+            <div class="tap-area-inner">
+              <span class="tap-area-text">TAP!</span>
+              <div class="tap-ripple-container"></div>
+            </div>
+          </button>
+        </div>
+
+        <div class="timer-hint">
+          Tap as fast as you can until the time runs out!
         </div>
       </div>
     </section>

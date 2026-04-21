@@ -1,8 +1,7 @@
 const express = require('express');
 const http = require('http');
-const { Server } = require('socket.io');
 const path = require('path');
-const whotEngine = require('./whotEngine');
+const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
@@ -30,7 +29,7 @@ function generateRoomCode() {
 
 function createRoom(hostId, hostName, rounds, mode) {
   const code = generateRoomCode();
-  const validMode = ['speed', 'grid', 'whot'].includes(mode) ? mode : 'classic';
+  const validMode = ['speed', 'grid', 'tap'].includes(mode) ? mode : 'classic';
   const room = {
     code,
     hostId,
@@ -51,9 +50,7 @@ function createRoom(hostId, hostName, rounds, mode) {
       trapperCells: [],     // 4 cells selected by trapper
       runnerSelections: new Map(), // playerId -> cell index
       phase: 'idle'         // idle | trapper-picking | runners-picking | reveal
-    } : null,
-    // Whot mode state
-    whotState: validMode === 'whot' ? {} : null
+    } : null
   };
   rooms.set(code, room);
   return room;
@@ -103,14 +100,12 @@ function startRound(room) {
   room.currentRound++;
   room.state = 'playing';
 
-  if (room.mode === 'whot') {
-    room.whotState = whotEngine.setupWhotState(room.players);
-    return { roundNumber: room.currentRound, mode: 'whot' };
-  }
-
   if (room.mode === 'speed') {
     // Speed mode: target between 1 and 120 seconds (to 1 decimal)
     room.targetTime = Math.round((Math.random() * 119 + 1) * 10) / 10;
+  } else if (room.mode === 'tap') {
+    // Tap mode: target time between 5 and 60 seconds
+    room.targetTime = Math.round((Math.random() * 55 + 5) * 10) / 10;
   } else {
     // Classic mode: target between 1 and 90 seconds (to 1 decimal)
     room.targetTime = Math.round((Math.random() * 89 + 1) * 10) / 10;
@@ -120,7 +115,8 @@ function startRound(room) {
     roundNumber: room.currentRound,
     targetTime: room.targetTime,
     submissions: new Map(),
-    startedAt: Date.now()
+    startedAt: Date.now(),
+    mode: room.mode
   };
   room.rounds.push(roundData);
 
@@ -170,6 +166,32 @@ function submitTime(room, playerId, elapsed) {
   return { submitted: true, waiting: connectedPlayers.length - submittedConnected };
 }
 
+function submitTaps(room, playerId, taps) {
+  const currentRound = room.rounds[room.rounds.length - 1];
+  if (!currentRound) return null;
+  if (currentRound.submissions.has(playerId)) return null;
+
+  currentRound.submissions.set(playerId, {
+    playerId,
+    playerName: room.players.get(playerId)?.name || 'Unknown',
+    taps: parseInt(taps) || 0,
+    score: 0 // Will be assigned in endRound
+  });
+
+  // Check if all connected players have submitted
+  const connectedPlayers = Array.from(room.players.values()).filter(p => p.connected);
+  let submittedConnected = 0;
+  for (const p of connectedPlayers) {
+    if (currentRound.submissions.has(p.id)) submittedConnected++;
+  }
+
+  if (submittedConnected >= connectedPlayers.length) {
+    return endRound(room);
+  }
+
+  return { submitted: true, waiting: connectedPlayers.length - submittedConnected };
+}
+
 function endRound(room) {
   if (room.roundTimeout) {
     clearTimeout(room.roundTimeout);
@@ -178,31 +200,46 @@ function endRound(room) {
 
   const currentRound = room.rounds[room.rounds.length - 1];
 
-  // Add "did not stop" entries for players who didn't submit
+  // Add "did not submit" entries for players who didn't submit
   for (const [playerId, player] of room.players) {
     if (player.connected && !currentRound.submissions.has(playerId)) {
-      currentRound.submissions.set(playerId, {
-        playerId,
-        playerName: player.name,
-        elapsed: null,
-        diff: null,
-        score: 0
-      });
+      if (room.mode === 'tap') {
+        currentRound.submissions.set(playerId, {
+          playerId,
+          playerName: player.name,
+          taps: 0,
+          score: 0
+        });
+      } else {
+        currentRound.submissions.set(playerId, {
+          playerId,
+          playerName: player.name,
+          elapsed: null,
+          diff: null,
+          score: 0
+        });
+      }
     }
   }
 
-  // Sort by closest to target (smallest diff first), DNFs go last
+  // Sort: 
+  // Tap mode: Highest taps first
+  // Classic/Speed: closest to target (smallest diff first), DNFs go last
   const results = Array.from(currentRound.submissions.values())
     .sort((a, b) => {
-      if (a.diff === null && b.diff === null) return 0;
-      if (a.diff === null) return 1;
-      if (b.diff === null) return -1;
-      return a.diff - b.diff;
+      if (room.mode === 'tap') {
+        return b.taps - a.taps;
+      } else {
+        if (a.diff === null && b.diff === null) return 0;
+        if (a.diff === null) return 1;
+        if (b.diff === null) return -1;
+        return a.diff - b.diff;
+      }
     });
 
   // Assign position-based scores
   results.forEach((r, index) => {
-    if (r.diff === null) {
+    if (room.mode !== 'tap' && r.diff === null) {
       r.score = 0; // DNF gets 0
     } else {
       r.score = getPositionScore(index);
@@ -222,6 +259,7 @@ function endRound(room) {
   return {
     roundNumber: room.currentRound,
     targetTime: room.targetTime,
+    mode: room.mode,
     results,
     standings,
     isLastRound
@@ -593,26 +631,6 @@ io.on('connection', (socket) => {
       return;
     }
 
-    if (room.mode === 'whot') {
-      if (room.players.size < 2) {
-        socket.emit('error-msg', { message: 'Need at least 2 players for Whot mode' });
-        return;
-      }
-      const roundData = startRound(room); // Handles whot setup
-      
-      // Emit the hands specifically to each user
-      for (const [pId, hand] of room.whotState.hands) {
-        io.to(pId).emit('whot-round-started', {
-          roundNumber: roundData.roundNumber,
-          hand: hand,
-          discardPile: room.whotState.discardPile,
-          turnIndex: room.whotState.turnIndex,
-          playerIds: room.whotState.playerIds
-        });
-      }
-      return;
-    }
-
     if (room.players.size < 1) {
       socket.emit('error-msg', { message: 'Need at least 1 player to start' });
       return;
@@ -624,7 +642,7 @@ io.on('connection', (socket) => {
       roundNumber: roundData.roundNumber,
       targetTime: roundData.targetTime,
       maxRounds: room.maxRounds,
-      mode: room.mode,
+      mode: roundData.mode || room.mode,
       players: getPlayerList(room)
     });
   });
@@ -645,6 +663,24 @@ io.on('connection', (socket) => {
       });
     } else {
       // All players submitted — send results
+      io.to(roomCode).emit('round-results', result);
+    }
+  });
+
+  socket.on('tap-submit', ({ roomCode, taps }) => {
+    const room = rooms.get(roomCode);
+    if (!room || room.state !== 'playing' || room.mode !== 'tap') return;
+
+    const result = submitTaps(room, socket.id, taps);
+    if (!result) return;
+
+    if (result.submitted) {
+      io.to(roomCode).emit('player-submitted', {
+        playerId: socket.id,
+        playerName: room.players.get(socket.id)?.name,
+        waiting: result.waiting
+      });
+    } else {
       io.to(roomCode).emit('round-results', result);
     }
   });
@@ -818,80 +854,8 @@ io.on('connection', (socket) => {
       }, 60000);
     }
   });
-  socket.on('whot-play-card', ({ roomCode, cardId, declaredShape }) => {
-    const room = rooms.get(roomCode);
-    if (!room || room.mode !== 'whot' || !room.whotState) return;
-
-    const result = whotEngine.processPlayCard(room.whotState, socket.id, cardId, declaredShape);
-    if (result.error) {
-      socket.emit('error-msg', { message: result.error });
-      return;
-    }
-
-    if (result.action === 'win') {
-      const penalties = whotEngine.calculatePenalties(room.whotState.hands);
-      for (const [pId, penalty] of penalties) {
-        const player = room.players.get(pId);
-        if (player) {
-          player.totalScore += penalty;
-          player.roundsPlayed = (player.roundsPlayed || 0) + 1;
-          if (penalty === 0) player.roundWins = (player.roundWins || 0) + 1;
-        }
-      }
-      
-      io.to(roomCode).emit('whot-round-over', {
-        winnerId: socket.id,
-        penalties: Array.from(penalties.entries()),
-        players: getPlayerList(room).sort((a,b) => {
-          if (a.totalScore !== b.totalScore) return a.totalScore - b.totalScore;
-          if ((b.roundWins||0) !== (a.roundWins||0)) return (b.roundWins||0) - (a.roundWins||0);
-          return (a.roundsPlayed||0) - (b.roundsPlayed||0);
-        })
-      });
-      room.state = 'results';
-    } else {
-      io.to(roomCode).emit('whot-card-played', {
-        playerId: socket.id,
-        card: result.card,
-        isAttack: room.whotState.attack.active,
-        newState: getWhotPublicState(room.whotState)
-      });
-    }
-  });
-
-  socket.on('whot-draw-card', ({ roomCode }) => {
-    const room = rooms.get(roomCode);
-    if (!room || room.mode !== 'whot' || !room.whotState) return;
-    
-    const result = whotEngine.processDrawCard(room.whotState, socket.id);
-    if (result.error) {
-      socket.emit('error-msg', { message: result.error });
-      return;
-    }
-
-    const hand = room.whotState.hands.get(socket.id);
-    socket.emit('whot-hand-updated', { hand });
-    
-    io.to(roomCode).emit('whot-player-drew', {
-      playerId: socket.id,
-      drawCount: result.drawCount,
-      drewForAttack: result.drewForAttack,
-      newState: getWhotPublicState(room.whotState)
-    });
-  });
 });
 
-function getWhotPublicState(state) {
-  const handsCounts = Array.from(state.hands.entries()).map(([id, hand]) => ({ id, count: hand.length }));
-  return {
-    discardTop: state.discardPile[state.discardPile.length - 1],
-    declaredShape: state.declaredShape,
-    turnIndex: state.turnIndex,
-    attackActive: state.attack.active,
-    attackCount: state.attack.stackCount,
-    handsCounts
-  };
-}
 
 // ─── Start Server ────────────────────────────────────────────────
 

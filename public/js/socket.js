@@ -63,6 +63,10 @@ const Socket = (() => {
     socket.emit('player-stop', { roomCode, elapsed });
   }
 
+  function submitTaps(taps) {
+    socket.emit('tap-submit', { roomCode, taps });
+  }
+
   function nextRound() {
     socket.emit('next-round', { roomCode });
   }
@@ -113,12 +117,21 @@ const Socket = (() => {
     if (socket) socket.on(event, callback);
   }
 
+  function whotPlayCard(cardId, declaredShape) {
+    socket.emit('whot-play-card', { roomCode, cardId, declaredShape });
+  }
+
+  function whotDrawCard() {
+    socket.emit('whot-draw-card', { roomCode });
+  }
+
   return {
     connect,
     createRoom,
     joinRoom,
     startRound,
     playerStop,
+    submitTaps,
     nextRound,
     playAgain,
     gridSetTraps,
@@ -130,6 +143,8 @@ const Socket = (() => {
     getMyId,
     getSocket,
     isConnected,
-    on
+    on,
+    whotPlayCard,
+    whotDrawCard
   };
 })();

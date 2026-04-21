@@ -10,6 +10,8 @@
   let selectedMode = 'classic';
   let hostId = null;
   let currentGameMode = 'classic';
+  let localWhotState = null;
+  let pendingWhotCard = null;
 
   // ─── Init ───
   function init() {
@@ -126,6 +128,31 @@
 
     // ─── Grid Mode Event Listeners ───
     setupGridEventListeners();
+
+    // ─── Whot Mode Event Listeners ───
+    document.getElementById('whot-deck').addEventListener('click', () => {
+      if (!localWhotState || localWhotState.turnIndex === -1) return;
+      const myId = Socket.getMyId();
+      if (localWhotState.playerIds[localWhotState.turnIndex] === myId) {
+        Socket.whotDrawCard();
+      } else {
+        UI.showToast("It's not your turn!", "warning");
+      }
+    });
+
+    document.querySelectorAll('.shape-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const shape = e.currentTarget.dataset.shape;
+        document.getElementById('whot-shape-modal').style.display = 'none';
+        if (pendingWhotCard) {
+          Socket.whotPlayCard(pendingWhotCard.id, shape);
+          pendingWhotCard = null;
+        }
+      });
+    });
+
+    // ─── Tap Mode Event Listeners ───
+    document.getElementById('btn-tap-area').addEventListener('click', handleTapAreaClick);
   }
 
   // ─── Grid Event Listeners ───
@@ -348,29 +375,60 @@
         document.getElementById('game-mode-label').textContent = 'Classic';
       }
 
-      // Reset live timer display
-      document.getElementById('live-timer-section').style.display = 'none';
-      document.getElementById('live-timer-value').textContent = '0.000';
+      const isTapMode = (mode === 'tap');
+      if (isTapMode) {
+        // Init tap game
+        Game.tapReset();
+        document.getElementById('tap-round-num').textContent = data.roundNumber;
+        document.getElementById('tap-max-rounds').textContent = data.maxRounds;
+        document.getElementById('tap-count').textContent = '0';
+        document.getElementById('tap-timer').textContent = data.targetTime.toFixed(1);
+        
+        UI.renderPlayerStatusDots(
+          document.getElementById('tap-players-status'),
+          data.players,
+          []
+        );
 
-      // Reset timer button
-      const btn = document.getElementById('btn-timer');
-      btn.dataset.state = 'ready';
-      btn.querySelector('.timer-btn-text').textContent = 'TAP TO START';
+        UI.showView('tap-game');
 
-      if (mode === 'speed') {
-        document.getElementById('timer-hint').textContent = 'Press start, then stop the timer when it reaches the target time!';
+        // Start countdown after a small delay
+        setTimeout(() => {
+          Game.startTapGame(data.targetTime, 
+            (remaining) => {
+              document.getElementById('tap-timer').textContent = remaining.toFixed(1);
+            },
+            (finalTaps) => {
+              UI.showToast('Time is up!', 'info');
+              Socket.submitTaps(finalTaps);
+            }
+          );
+        }, 1000);
       } else {
-        document.getElementById('timer-hint').textContent = 'Press the button to start, then press again when you think the target time has elapsed';
+        // Reset live timer display
+        document.getElementById('live-timer-section').style.display = 'none';
+        document.getElementById('live-timer-value').textContent = '0.000';
+
+        // Reset timer button
+        const btn = document.getElementById('btn-timer');
+        btn.dataset.state = 'ready';
+        btn.querySelector('.timer-btn-text').textContent = 'TAP TO START';
+
+        if (mode === 'speed') {
+          document.getElementById('timer-hint').textContent = 'Press start, then stop the timer when it reaches the target time!';
+        } else {
+          document.getElementById('timer-hint').textContent = 'Press the button to start, then press again when you think the target time has elapsed';
+        }
+
+        // Reset player status dots
+        UI.renderPlayerStatusDots(
+          document.getElementById('game-players-status'),
+          data.players,
+          []
+        );
+
+        UI.showView('game');
       }
-
-      // Reset player status dots
-      UI.renderPlayerStatusDots(
-        document.getElementById('game-players-status'),
-        data.players,
-        []
-      );
-
-      UI.showView('game');
     });
 
     // Player submitted their time
@@ -388,7 +446,7 @@
       document.getElementById('results-round-num').textContent = data.roundNumber;
       document.getElementById('results-target').textContent = data.targetTime.toFixed(1);
 
-      UI.renderResultsTable(document.getElementById('results-tbody'), data.results);
+      UI.renderResultsTable(document.getElementById('results-tbody'), data.results, data.mode);
       UI.renderStandings(document.getElementById('standings-list'), data.standings);
 
       if (data.isLastRound) {
@@ -402,6 +460,9 @@
 
     // ─── Grid Mode Socket Listeners ───
     setupGridSocketListeners();
+
+    // ─── Whot Mode Socket Listeners ───
+    setupWhotSocketListeners();
 
     // Game reset (play again)
     Socket.on('game-reset', (data) => {
@@ -563,6 +624,146 @@
     });
   }
 
+  // ─── Whot Socket Listeners ───
+  function setupWhotSocketListeners() {
+    Socket.on('whot-round-started', (data) => {
+      try {
+        currentGameMode = 'whot';
+        Game.setRoundInfo(data.roundNumber, data.maxRounds);
+        
+        localWhotState = {
+          turnIndex: data.turnIndex,
+          playerIds: data.playerIds,
+          topCard: data.discardPile[data.discardPile.length - 1],
+          declaredShape: null,
+          attackActive: false,
+          attackCount: 0
+        };
+
+        document.getElementById('whot-round-num').textContent = data.roundNumber || 1;
+        document.getElementById('whot-max-rounds').textContent = Game.maxRounds || 3;
+
+        UI.renderWhotHand(document.getElementById('whot-hand'), data.hand, handleWhotCardClick);
+        UI.renderWhotTopCard(document.getElementById('whot-discard'), localWhotState.topCard);
+        
+        const handsCounts = data.playerIds.map(id => ({ id, count: 4 }));
+        UI.renderWhotOpponents(document.getElementById('whot-opponents'), handsCounts, data.turnIndex, data.playerIds, Game.getPlayers());
+        
+        updateWhotTurnIndicator();
+        UI.showView('game-whot');
+      } catch (err) {
+        UI.showToast("Error starting Whot: " + err.message, "error");
+        console.error("whot-round-started ERROR:", err);
+      }
+    });
+
+    Socket.on('whot-card-played', (data) => {
+      localWhotState.topCard = data.card;
+      localWhotState.turnIndex = data.newState.turnIndex;
+      localWhotState.declaredShape = data.newState.declaredShape;
+      localWhotState.attackActive = data.newState.attackActive;
+      localWhotState.attackCount = data.newState.attackCount;
+      
+      UI.renderWhotTopCard(document.getElementById('whot-discard'), localWhotState.topCard);
+      UI.renderWhotOpponents(document.getElementById('whot-opponents'), data.newState.handsCounts, localWhotState.turnIndex, localWhotState.playerIds, Game.getPlayers());
+      updateWhotTurnIndicator();
+    });
+
+    Socket.on('whot-player-drew', (data) => {
+      localWhotState.turnIndex = data.newState.turnIndex;
+      localWhotState.attackActive = data.newState.attackActive;
+      localWhotState.attackCount = data.newState.attackCount;
+      
+      UI.renderWhotOpponents(document.getElementById('whot-opponents'), data.newState.handsCounts, localWhotState.turnIndex, localWhotState.playerIds, Game.getPlayers());
+      updateWhotTurnIndicator();
+    });
+
+    Socket.on('whot-hand-updated', (data) => {
+      UI.renderWhotHand(document.getElementById('whot-hand'), data.hand, handleWhotCardClick);
+    });
+
+    Socket.on('whot-round-over', (data) => {
+      UI.showToast('Round over!', 'info');
+      
+      // Update results UI placeholders
+      document.getElementById('results-round-num').textContent = Game.currentRound;
+      document.getElementById('results-target').textContent = 'N/A';
+      
+      // Fake results data structure to re-use resultsTable
+      const mappedResults = data.penalties.map(([id, pen]) => {
+         const p = Game.getPlayers().find(pl => pl.id === id);
+         return {
+           playerName: p ? p.name : 'Unknown',
+           diff: pen, // show penalty as diff
+           score: pen === 0 ? "WIN" : -pen // show score change
+         }
+      });
+      UI.renderResultsTable(document.getElementById('results-tbody'), mappedResults);
+      UI.renderStandings(document.getElementById('standings-list'), data.players);
+      
+      const isLastRound = Game.currentRound >= Game.maxRounds;
+      if (isLastRound) {
+        showFinalResults(data.players);
+      } else {
+        showHostControls('results', Socket.getIsHost());
+        UI.showView('results');
+      }
+    });
+
+    Socket.on('whot-error', (data) => {
+       UI.showToast(data.message, 'error');
+    });
+  }
+
+  function handleWhotCardClick(card) {
+    if (!localWhotState || localWhotState.turnIndex === -1) return;
+    const myId = Socket.getMyId();
+    if (localWhotState.playerIds[localWhotState.turnIndex] !== myId) {
+      UI.showToast("It's not your turn!", "warning");
+      return;
+    }
+
+    if (card.number === 20) {
+      pendingWhotCard = card;
+      document.getElementById('whot-shape-modal').style.display = 'flex';
+    } else {
+      Socket.whotPlayCard(card.id, null);
+      // Remove locally instantly to avoid double clicks
+      document.querySelector(`.whot-card[data-id="${card.id}"]`)?.remove();
+    }
+  }
+
+  function updateWhotTurnIndicator() {
+    if (!localWhotState) return;
+    const myId = Socket.getMyId();
+    const currentTurnId = localWhotState.playerIds[localWhotState.turnIndex];
+    if (currentTurnId === myId) {
+      document.getElementById('whot-turn-indicator').textContent = "Your Turn!";
+    } else {
+      const p = Game.getPlayers().find(pl => pl.id === currentTurnId);
+      document.getElementById('whot-turn-indicator').textContent = `${p ? p.name : 'Someone'}'s Turn`;
+    }
+    
+    // Update Alerts
+    if (localWhotState.attackActive) {
+      document.getElementById('whot-attack-banner').style.display = 'block';
+      let pickStr = localWhotState.attackCount > 0 ? "2 / 5" : "";
+      if (localWhotState.attackCount % 3 === 0 && localWhotState.attackCount > 0 && localWhotState.attackCount % 2 !== 0) pickStr = "5";
+      if (localWhotState.attackCount % 2 === 0 && localWhotState.attackCount > 0) pickStr = "2";
+      document.getElementById('whot-attack-type').textContent = pickStr;
+      document.getElementById('whot-attack-stack').textContent = localWhotState.attackCount;
+    } else {
+      document.getElementById('whot-attack-banner').style.display = 'none';
+    }
+
+    if (localWhotState.declaredShape) {
+      document.getElementById('whot-shape-indicator').style.display = 'block';
+      document.getElementById('whot-active-shape').textContent = localWhotState.declaredShape.toUpperCase();
+    } else {
+      document.getElementById('whot-shape-indicator').style.display = 'none';
+    }
+  }
+
   // ─── Helpers ───
   function updateLobbyMode(mode) {
     const modeEl = document.getElementById('lobby-mode');
@@ -574,6 +775,12 @@
     } else if (mode === 'grid') {
       modeEl.textContent = '🔲 Grid';
       gridInfo.style.display = 'block';
+    } else if (mode === 'tap') {
+      modeEl.textContent = '👆 Tap';
+      gridInfo.style.display = 'none';
+    } else if (mode === 'whot') {
+      modeEl.textContent = '🃏 Whot';
+      gridInfo.style.display = 'none';
     } else {
       modeEl.textContent = '🙈 Classic';
       gridInfo.style.display = 'none';
@@ -625,6 +832,37 @@
 
     // Confetti!
     setTimeout(() => UI.spawnConfetti(), 300);
+  }
+
+  // ─── Tap Area Click Handler ───
+  function handleTapAreaClick(e) {
+    if (!Game.isTapActive()) return;
+
+    const count = Game.handleTap();
+    document.getElementById('tap-count').textContent = count;
+
+    // Create ripple effect
+    createTapRipple(e);
+  }
+
+  function createTapRipple(e) {
+    const btn = document.getElementById('btn-tap-area');
+    const container = btn.querySelector('.tap-ripple-container');
+    const ripple = document.createElement('div');
+    ripple.className = 'tap-ripple';
+    
+    // Get position relative to button
+    const rect = btn.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    ripple.style.left = x + 'px';
+    ripple.style.top = y + 'px';
+    
+    container.appendChild(ripple);
+    
+    // Remove after animation
+    setTimeout(() => ripple.remove(), 600);
   }
 
   // ─── Start ───

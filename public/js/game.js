@@ -180,6 +180,54 @@ const Game = (() => {
     return gridSubmittedRunners;
   }
 
+  // ─── Tap Mode State ───
+  let currentTaps = 0;
+  let tapTimerValue = 0;
+  let tapTimerInterval = null;
+  let tapActive = false;
+
+  function tapReset() {
+    currentTaps = 0;
+    tapTimerValue = 0;
+    tapActive = false;
+    if (tapTimerInterval) {
+      clearInterval(tapTimerInterval);
+      tapTimerInterval = null;
+    }
+  }
+
+  function startTapGame(duration, onTick, onComplete) {
+    tapReset();
+    tapTimerValue = duration;
+    tapActive = true;
+    
+    tapTimerInterval = setInterval(() => {
+      tapTimerValue -= 0.1;
+      if (tapTimerValue <= 0) {
+        tapTimerValue = 0;
+        tapActive = false;
+        clearInterval(tapTimerInterval);
+        tapTimerInterval = null;
+        if (onComplete) onComplete(currentTaps);
+      }
+      if (onTick) onTick(tapTimerValue);
+    }, 100);
+  }
+
+  function handleTap() {
+    if (!tapActive) return currentTaps;
+    currentTaps++;
+    return currentTaps;
+  }
+
+  function getTapCount() {
+    return currentTaps;
+  }
+
+  function isTapActive() {
+    return tapActive;
+  }
+
   return {
     setMode,
     getMode,
@@ -206,6 +254,12 @@ const Game = (() => {
     gridGetRunnerCells,
     gridAddSubmittedRunner,
     gridGetSubmittedRunners,
+    // Tap methods
+    tapReset,
+    startTapGame,
+    handleTap,
+    getTapCount,
+    isTapActive,
     get currentRound() { return currentRound; },
     get maxRounds() { return maxRounds; },
     get currentTarget() { return currentTarget; }

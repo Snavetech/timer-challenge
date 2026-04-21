@@ -65,27 +65,52 @@ const UI = (() => {
   }
 
   // ─── Results Table ───
-  function renderResultsTable(tbody, results) {
+  function renderResultsTable(tbody, results, mode) {
     tbody.innerHTML = '';
+    
+    // Update header if mode is tap
+    const table = tbody.closest('table');
+    if (table) {
+      const timeHeader = table.querySelector('th:nth-child(3)');
+      const diffHeader = table.querySelector('th:nth-child(4)');
+      if (mode === 'tap') {
+        if (timeHeader) timeHeader.textContent = 'Count';
+        if (diffHeader) diffHeader.textContent = 'Outcome';
+      } else {
+        if (timeHeader) timeHeader.textContent = 'Time';
+        if (diffHeader) diffHeader.textContent = 'Diff';
+      }
+    }
+
     results.forEach((r, i) => {
       const rank = i + 1;
       const tr = document.createElement('tr');
       tr.className = rank <= 3 ? `rank-${rank}` : '';
 
-      let diffClass = '';
-      if (r.diff !== null) {
-        if (r.diff <= 0.1) diffClass = 'diff-perfect';
-        else if (r.diff <= 1.0) diffClass = 'diff-close';
-        else diffClass = 'diff-far';
-      }
+      if (mode === 'tap') {
+        tr.innerHTML = `
+          <td class="rank-cell">${rank}</td>
+          <td class="player-cell">${escapeHtml(r.playerName)}</td>
+          <td class="time-cell">${r.taps} taps</td>
+          <td class="diff-cell">—</td>
+          <td class="score-cell">${r.score}</td>
+        `;
+      } else {
+        let diffClass = '';
+        if (r.diff !== null) {
+          if (r.diff <= 0.1) diffClass = 'diff-perfect';
+          else if (r.diff <= 1.0) diffClass = 'diff-close';
+          else diffClass = 'diff-far';
+        }
 
-      tr.innerHTML = `
-        <td class="rank-cell">${rank}</td>
-        <td class="player-cell">${escapeHtml(r.playerName)}</td>
-        <td class="time-cell">${r.elapsed !== null ? r.elapsed.toFixed(2) + 's' : 'DNF'}</td>
-        <td class="diff-cell ${diffClass}">${r.diff !== null ? (r.diff === 0 ? 'PERFECT!' : '±' + r.diff.toFixed(2) + 's') : '—'}</td>
-        <td class="score-cell">${r.score}</td>
-      `;
+        tr.innerHTML = `
+          <td class="rank-cell">${rank}</td>
+          <td class="player-cell">${escapeHtml(r.playerName)}</td>
+          <td class="time-cell">${r.elapsed !== null ? r.elapsed.toFixed(2) + 's' : 'DNF'}</td>
+          <td class="diff-cell ${diffClass}">${r.diff !== null ? (r.diff === 0 ? 'PERFECT!' : '±' + r.diff.toFixed(2) + 's') : '—'}</td>
+          <td class="score-cell">${r.score}</td>
+        `;
+      }
       tbody.appendChild(tr);
     });
   }
@@ -243,6 +268,66 @@ const UI = (() => {
     `;
   }
 
+  // ─── Whot Mode Rendering ───
+  function getShapeIcon(shape) {
+    const icons = { 'circle': '⭕', 'triangle': '🔺', 'cross': '➕', 'square': '🟦', 'star': '⭐', 'whot': '🃏' };
+    return icons[shape] || '❓';
+  }
+
+  function createWhotCardDOM(card, interactable = false) {
+    const el = document.createElement('div');
+    if (!card) return el;
+    el.className = `whot-card ${card.isSpecial ? 'special-card' : ''} ${card.number === 20 ? 'whot-20' : ''}`;
+    el.dataset.id = card.id;
+    
+    // Add text format inside the card
+    const displayNum = card.number === 20 ? '20' : card.number;
+    const icon = getShapeIcon(card.shape);
+
+    el.innerHTML = `
+      <div class="top-left">${displayNum}</div>
+      <div class="center-shape">${icon}</div>
+      <div class="bottom-right">${displayNum}</div>
+    `;
+
+    return el;
+  }
+
+  function renderWhotHand(container, hand, onCardClick) {
+    container.innerHTML = '';
+    hand.forEach(card => {
+      const cardEl = createWhotCardDOM(card, true);
+      cardEl.addEventListener('click', () => onCardClick(card));
+      container.appendChild(cardEl);
+    });
+  }
+
+  function renderWhotTopCard(container, card) {
+    container.innerHTML = '';
+    const cardEl = createWhotCardDOM(card);
+    // Slight random rotation for natural feel
+    const rot = (Math.random() * 10) - 5; 
+    cardEl.style.transform = `rotate(${rot}deg)`;
+    container.appendChild(cardEl);
+  }
+
+  function renderWhotOpponents(container, handsCounts, turnIndex, playerIds, playersList) {
+    container.innerHTML = '';
+    handsCounts.forEach(hc => {
+      const p = playersList.find(pl => pl.id === hc.id);
+      if(!p) return;
+      const turnActive = playerIds[turnIndex] === hc.id;
+      
+      const el = document.createElement('div');
+      el.className = `whot-opponent ${turnActive ? 'active-turn' : ''}`;
+      el.innerHTML = `
+        <span style="font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80px;">${escapeHtml(p.name)}</span>
+        <span style="font-size: 1.5rem; margin-top: 5px;">${hc.count} 🃏</span>
+      `;
+      container.appendChild(el);
+    });
+  }
+
   return {
     showView,
     showToast,
@@ -256,6 +341,9 @@ const UI = (() => {
     escapeHtml,
     renderGridReveal,
     renderGridOutcomes,
-    renderGridTrapperScore
+    renderGridTrapperScore,
+    renderWhotHand,
+    renderWhotTopCard,
+    renderWhotOpponents
   };
 })();

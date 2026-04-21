@@ -1959,3 +1959,404 @@ body {
   background: rgba(0, 229, 255, 0.25);
   color: var(--text);
 }
+
+/* ─── NAIJA WHOT STYLES ─── */
+.whot-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.whot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.whot-opponents {
+  display: flex;
+  gap: 15px;
+  overflow-x: auto;
+  padding: 10px;
+  min-height: 80px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--radius-xl);
+  backdrop-filter: blur(10px);
+}
+
+.whot-opponent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  min-width: 100px;
+}
+
+.whot-opponent.active-turn {
+  border-color: #bc13fe;
+  box-shadow: 0 0 10px rgba(188, 19, 254, 0.3);
+}
+
+.whot-board {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 40px;
+  position: relative;
+  margin: 20px 0;
+}
+
+.whot-pile {
+  width: 120px;
+  height: 180px;
+  border-radius: var(--radius-md);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  transition: transform 0.2s;
+}
+
+.whot-deck {
+  background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(0,0,0,0.5));
+  border: 2px dashed rgba(255,255,255,0.2);
+  cursor: pointer;
+}
+
+.whot-deck:hover {
+  transform: translateY(-5px);
+  border-color: #bc13fe;
+}
+
+.whot-card-back {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  letter-spacing: 2px;
+  color: rgba(255,255,255,0.3);
+  transform: rotate(-45deg);
+}
+
+.whot-card {
+  width: 120px;
+  height: 180px;
+  background: rgba(20, 20, 30, 0.9);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: var(--radius-md);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+}
+
+.whot-card.disabled {
+  opacity: 0.5;
+  filter: grayscale(1);
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+  border-color: rgba(255,255,255,0.1) !important;
+}
+
+.whot-card:not(.disabled):hover {
+  transform: translateY(-15px) scale(1.05);
+  box-shadow: 0 15px 30px rgba(0,0,0,0.5), 0 0 20px rgba(188, 19, 254, 0.4);
+  border-color: #bc13fe;
+  z-index: 10;
+}
+
+.whot-card .top-left { font-size: 1.2rem; font-weight: bold; align-self: flex-start; }
+.whot-card .bottom-right { font-size: 1.2rem; font-weight: bold; align-self: flex-end; transform: rotate(180deg); }
+.whot-card .center-shape { 
+  font-size: 4rem; 
+  align-self: center; 
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 0 10px rgba(255,255,255,0.2));
+}
+
+.whot-card.special-card {
+  border-color: var(--warning);
+  background: linear-gradient(135deg, rgba(255, 171, 0, 0.1), rgba(20, 20, 30, 0.9));
+}
+
+.whot-card.whot-20 {
+  border-color: #bc13fe;
+  background: linear-gradient(135deg, rgba(188, 19, 254, 0.1), rgba(20, 20, 30, 0.9));
+}
+
+.whot-player-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: auto;
+  min-height: 250px;
+}
+
+.whot-turn-indicator {
+  margin-bottom: 20px;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-weight: 300;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  transition: 0.3s;
+}
+
+.whot-turn-indicator.your-turn {
+  color: #bc13fe;
+  font-weight: 700;
+  text-shadow: 0 0 10px rgba(188, 19, 254, 0.5);
+  animation: pulse-turn 1.5s infinite;
+}
+
+@keyframes pulse-turn {
+  0% { opacity: 0.8; }
+  50% { opacity: 1; transform: scale(1.05); }
+  100% { opacity: 0.8; }
+}
+
+.whot-hand {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: -60px; /* Overlapping cards */
+}
+
+.whot-hand .whot-card {
+  margin-right: -40px; /* negative margin for overlap */
+}
+
+/* Modals & Alerts */
+.whot-alerts {
+  position: absolute;
+  top: -40px;
+  width: 100%;
+  display: flex;
+  justify-content: space-around;
+}
+
+.whot-alert.attack {
+  background: rgba(255, 50, 50, 0.2);
+  border: 1px solid #ff3232;
+  color: #ff3232;
+  padding: 5px 15px;
+  border-radius: 20px;
+  animation: blink-danger 1s infinite alternate;
+}
+
+.whot-alert.shape {
+  background: rgba(188, 19, 254, 0.2);
+  border: 1px solid #bc13fe;
+  color: #bc13fe;
+  padding: 5px 15px;
+  border-radius: 20px;
+}
+
+@keyframes blink-danger {
+  from { box-shadow: 0 0 5px #ff3232; }
+  to { box-shadow: 0 0 20px #ff3232; }
+}
+
+.whot-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(15px);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.whot-modal {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 40px;
+  border-radius: 20px;
+  text-align: center;
+}
+
+.whot-shape-options {
+  display: flex;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.shape-btn {
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: white;
+  padding: 15px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 1.5rem;
+  transition: 0.2s;
+}
+
+.shape-btn:hover {
+  background: rgba(188, 19, 254, 0.3);
+  border-color: #bc13fe;
+  transform: scale(1.1);
+}
+
+/* ═══════════════════════════════════════════
+   TAP GAME STYLES
+   ═══════════════════════════════════════════ */
+
+.mode-badge-tap {
+  background: rgba(0, 242, 96, 0.1);
+  border: 1px solid rgba(0, 242, 96, 0.25);
+  color: var(--success);
+}
+
+.tap-info-section {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  width: 100%;
+}
+
+.tap-countdown-container, .tap-counter-container {
+  flex: 1;
+  background: var(--bg-card);
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  backdrop-filter: blur(10px);
+}
+
+.tap-countdown-label, .tap-counter-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.tap-countdown-value {
+  font-family: var(--font-mono);
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--warning);
+  text-shadow: 0 0 20px rgba(246, 211, 101, 0.3);
+}
+
+.tap-counter-value {
+  font-family: var(--font-mono);
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--success);
+  text-shadow: 0 0 20px rgba(0, 242, 96, 0.3);
+}
+
+.tap-area-container {
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 20px auto;
+}
+
+.tap-area {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--bg-card-solid);
+  border: 4px solid var(--border-subtle);
+  padding: 10px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.1s cubic-bezier(0.2, 0.8, 0.2, 1);
+  outline: none;
+  box-shadow: var(--shadow-card);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tap-area-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.1), transparent 60%),
+              linear-gradient(135deg, rgba(0, 242, 254, 0.1) 0%, rgba(79, 172, 254, 0.1) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.tap-area:active {
+  transform: scale(0.94);
+  background: rgba(0, 242, 254, 0.05);
+  border-color: var(--accent);
+  box-shadow: 0 0 30px var(--accent-dim);
+}
+
+.tap-area-text {
+  font-size: 2.5rem;
+  font-weight: 900;
+  color: var(--text);
+  letter-spacing: 0.1em;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+  pointer-events: none;
+  user-select: none;
+}
+
+.tap-area:active .tap-area-text {
+  color: var(--accent);
+  transform: scale(1.1);
+}
+
+.tap-ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.4;
+  transform: scale(0);
+  animation: tapRipple 0.5s linear;
+  pointer-events: none;
+}
+
+@keyframes tapRipple {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+.mode-selector-5 {
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+}
+
+@media (max-width: 480px) {
+  .tap-info-section {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .tap-area-container {
+    max-width: 260px;
+  }
+}
+
