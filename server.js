@@ -104,8 +104,8 @@ function startRound(room) {
     // Speed mode: target between 1 and 120 seconds (to 1 decimal)
     room.targetTime = Math.round((Math.random() * 119 + 1) * 10) / 10;
   } else if (room.mode === 'tap') {
-    // Tap mode: target time between 5 and 60 seconds
-    room.targetTime = Math.round((Math.random() * 55 + 5) * 10) / 10;
+    // Tap mode: target time between 0.2 and 30 seconds
+    room.targetTime = Math.round((Math.random() * 29.8 + 0.2) * 10) / 10;
   } else {
     // Classic mode: target between 1 and 90 seconds (to 1 decimal)
     room.targetTime = Math.round((Math.random() * 89 + 1) * 10) / 10;

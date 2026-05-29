@@ -6,7 +6,7 @@ let roomCode = null;
 
 client1.on('connect', () => {
   console.log('Client 1 connected');
-  client1.emit('create-room', { username: 'Host', rounds: 3, mode: 'whot' });
+  client1.emit('create-room', { username: 'Host', rounds: 3, mode: 'tap' });
 });
 
 client1.on('room-created', (data) => {
@@ -20,8 +20,8 @@ client2.on('room-joined', (data) => {
   client1.emit('start-round', { roomCode });
 });
 
-client1.on('whot-round-started', (data) => {
-  console.log('Client 1 received whot-round-started!', Object.keys(data));
+client1.on('round-started', (data) => {
+  console.log('Client 1 received round-started!', Object.keys(data));
   process.exit(0);
 });
 

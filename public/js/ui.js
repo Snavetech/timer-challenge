@@ -328,6 +328,73 @@ const UI = (() => {
     });
   }
 
+  // ─── Last Game Card ───
+  function renderLastGameCard(container, data) {
+    if (!data || !data.standings || data.standings.length === 0) {
+      container.style.display = 'none';
+      return;
+    }
+    container.style.display = 'block';
+
+    // Mode label
+    const modeNames = { classic: '🙈 Classic', speed: '⚡ Speed', tap: '👆 Tap', grid: '🔲 Grid' };
+    const modeEl = container.querySelector('#last-game-mode');
+    if (modeEl) modeEl.textContent = modeNames[data.mode] || 'Classic';
+
+    // Your rank
+    const rankEl = container.querySelector('#last-game-rank');
+    if (rankEl) rankEl.textContent = data.myRank ? `#${data.myRank}` : '—';
+
+    // Your score
+    const scoreEl = container.querySelector('#last-game-score');
+    if (scoreEl) scoreEl.textContent = data.myScore || 0;
+
+    // Player count
+    const playersEl = container.querySelector('#last-game-players');
+    if (playersEl) playersEl.textContent = data.standings.length;
+
+    // Top 3 podium
+    const podiumEl = container.querySelector('#last-game-podium');
+    if (podiumEl) {
+      podiumEl.innerHTML = '';
+      const medals = ['🥇', '🥈', '🥉'];
+      const top3 = data.standings.slice(0, 3);
+      top3.forEach((s, i) => {
+        const entry = document.createElement('div');
+        entry.className = 'podium-entry';
+        entry.innerHTML = `
+          <span class="podium-medal">${medals[i]}</span>
+          <span class="podium-name">${escapeHtml(s.name)}</span>
+          <span class="podium-score">${s.totalScore} pts</span>
+        `;
+        podiumEl.appendChild(entry);
+      });
+    }
+  }
+
+  // ─── Leaderboard Modal ───
+  function renderLeaderboardModal(container, standings) {
+    container.innerHTML = '';
+    if (!standings) return;
+
+    standings.forEach((s, i) => {
+      const row = document.createElement('div');
+      row.className = `final-standing-row ${i === 0 ? 'winner-row' : ''}`;
+      row.style.animationDelay = `${0.1 + i * 0.08}s`;
+
+      const medals = ['🥇', '🥈', '🥉'];
+      const rankClass = i < 3 ? `final-rank-${i + 1}` : '';
+
+      row.innerHTML = `
+        <div class="final-rank ${rankClass}">${i < 3 ? medals[i] : '#' + (i + 1)}</div>
+        <div class="player-avatar" style="background: ${s.color || '#818cf8'}">${s.name.substring(0, 2).toUpperCase()}</div>
+        <div class="final-player-name">${escapeHtml(s.name)}</div>
+        <div class="final-player-score">${s.totalScore} pts</div>
+      `;
+      container.appendChild(row);
+    });
+  }
+
   return {
     showView,
     showToast,
@@ -344,6 +411,8 @@ const UI = (() => {
     renderGridTrapperScore,
     renderWhotHand,
     renderWhotTopCard,
-    renderWhotOpponents
+    renderWhotOpponents,
+    renderLastGameCard,
+    renderLeaderboardModal
   };
 })();

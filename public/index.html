@@ -46,6 +46,27 @@
           <h1 class="game-title">Timer<span class="accent">Challenge</span></h1>
           <p class="game-subtitle">Stop the hidden clock at the exact moment. Compete with friends in real-time!</p>
         </div>
+        <div id="last-game-card" class="last-game-card" style="display: none;">
+          <div class="last-game-header">
+            <span class="last-game-label">Last Game</span>
+            <span class="last-game-mode" id="last-game-mode">Classic</span>
+          </div>
+          <div class="last-game-body">
+            <div class="last-game-rank" id="last-game-rank">#1</div>
+            <div class="last-game-stats">
+              <div class="last-game-stat">
+                <div class="last-game-stat-value" id="last-game-score">0</div>
+                <div class="last-game-stat-label">Points</div>
+              </div>
+              <div class="last-game-stat">
+                <div class="last-game-stat-value" id="last-game-players">0</div>
+                <div class="last-game-stat-label">Players</div>
+              </div>
+            </div>
+          </div>
+          <div class="last-game-podium" id="last-game-podium"></div>
+          <button class="btn-view-leaderboard" id="btn-view-leaderboard">🏆 View Full Leaderboard</button>
+        </div>
         <div class="landing-actions">
           <button id="btn-create" class="btn btn-primary btn-large">
             <span class="btn-icon">+</span>
@@ -56,6 +77,7 @@
             Join Room
           </button>
         </div>
+        <button id="btn-how-to-play" class="btn-how-to-play">📖 How to Play</button>
         <div class="landing-footer">
           <p class="how-it-works-hint">🎯 A target time is set • ⏱️ Start the hidden timer • ✋ Stop when you think it's right</p>
         </div>
@@ -523,5 +545,98 @@
   <script src="js/game.js"></script>
   <script src="js/socket.js"></script>
   <script src="js/app.js"></script>
+  <!-- ═══ How to Play Modal ═══ -->
+  <div id="htp-modal" class="htp-overlay" style="display: none;">
+    <div class="htp-modal">
+      <div class="htp-header">
+        <h2>How to Play</h2>
+        <button class="htp-close" id="htp-close">✕</button>
+      </div>
+      <div class="htp-tabs">
+        <button class="htp-tab active" data-mode="classic">
+          <span class="htp-tab-icon">🙈</span> Classic
+        </button>
+        <button class="htp-tab" data-mode="speed">
+          <span class="htp-tab-icon">⚡</span> Speed
+        </button>
+        <button class="htp-tab" data-mode="tap">
+          <span class="htp-tab-icon">👆</span> Tap
+        </button>
+        <button class="htp-tab" data-mode="grid">
+          <span class="htp-tab-icon">🔲</span> Grid
+        </button>
+      </div>
+      <div class="htp-content">
+        <div class="htp-panel active" id="htp-classic">
+          <h3 class="htp-mode-title">🙈 Classic Mode</h3>
+          <p class="htp-mode-desc">A test of your internal clock! The timer is completely hidden — rely on your instinct to stop it at the right moment.</p>
+          <div class="htp-steps">
+            <div class="htp-step"><div class="htp-step-num">1</div><div class="htp-step-text">A random <strong>target time</strong> is shown (1–90 seconds)</div></div>
+            <div class="htp-step"><div class="htp-step-num">2</div><div class="htp-step-text">Tap <strong>Start</strong> to begin a hidden timer — you can't see it counting!</div></div>
+            <div class="htp-step"><div class="htp-step-num">3</div><div class="htp-step-text">Tap <strong>Stop</strong> when you think the target time has elapsed</div></div>
+          </div>
+          <div class="htp-scoring">
+            <div class="htp-scoring-title">Scoring</div>
+            <div class="htp-scoring-text">Players ranked by who stops closest to the target. 1st = 10pts, 2nd = 7pts, 3rd = 5pts, 4th = 3pts, 5th = 2pts, others = 1pt.</div>
+          </div>
+          <div class="htp-tip"><span class="htp-tip-icon">💡</span> Try counting in your head at a steady pace — "one-Mississippi, two-Mississippi..."</div>
+        </div>
+        <div class="htp-panel" id="htp-speed">
+          <h3 class="htp-mode-title">⚡ Speed Mode</h3>
+          <p class="htp-mode-desc">The timer is visible and runs fast! Test your reflexes by stopping it at exactly the right moment.</p>
+          <div class="htp-steps">
+            <div class="htp-step"><div class="htp-step-num">1</div><div class="htp-step-text">A random <strong>target time</strong> is shown (1–120 seconds)</div></div>
+            <div class="htp-step"><div class="htp-step-num">2</div><div class="htp-step-text">Tap <strong>Start</strong> — watch the live timer count up in real-time</div></div>
+            <div class="htp-step"><div class="htp-step-num">3</div><div class="htp-step-text">Tap <strong>Stop</strong> at exactly the target time — precision matters!</div></div>
+          </div>
+          <div class="htp-scoring">
+            <div class="htp-scoring-title">Scoring</div>
+            <div class="htp-scoring-text">Same as Classic — closest to target wins. 1st = 10pts, 2nd = 7pts, 3rd = 5pts, 4th = 3pts, 5th = 2pts.</div>
+          </div>
+          <div class="htp-tip"><span class="htp-tip-icon">💡</span> Don't just watch the number — feel the rhythm and anticipate when to stop!</div>
+        </div>
+        <div class="htp-panel" id="htp-tap">
+          <h3 class="htp-mode-title">👆 Tap Mode</h3>
+          <p class="htp-mode-desc">Pure speed! Tap as fast as humanly possible within the time limit. Most taps wins!</p>
+          <div class="htp-steps">
+            <div class="htp-step"><div class="htp-step-num">1</div><div class="htp-step-text">A random <strong>time limit</strong> is set (0.2–30 seconds)</div></div>
+            <div class="htp-step"><div class="htp-step-num">2</div><div class="htp-step-text">When the countdown starts, <strong>tap the circle</strong> as fast as you can!</div></div>
+            <div class="htp-step"><div class="htp-step-num">3</div><div class="htp-step-text">When time runs out, your tap count is automatically submitted</div></div>
+          </div>
+          <div class="htp-scoring">
+            <div class="htp-scoring-title">Scoring</div>
+            <div class="htp-scoring-text">Players ranked by most taps. 1st = 10pts, 2nd = 7pts, 3rd = 5pts, 4th = 3pts, 5th = 2pts.</div>
+          </div>
+          <div class="htp-tip"><span class="htp-tip-icon">💡</span> Use multiple fingers on mobile for insane tap speeds!</div>
+        </div>
+        <div class="htp-panel" id="htp-grid">
+          <h3 class="htp-mode-title">🔲 Grid Avoidance</h3>
+          <p class="htp-mode-desc">A strategic mind game on a 3×3 grid! One player sets traps, the rest try to avoid them.</p>
+          <div class="htp-steps">
+            <div class="htp-step"><div class="htp-step-num">1</div><div class="htp-step-text">Each round, one player becomes the <strong>Trapper</strong> (rotates every round)</div></div>
+            <div class="htp-step"><div class="htp-step-num">2</div><div class="htp-step-text">The Trapper secretly picks <strong>4 cells</strong> on the 3×3 grid to trap</div></div>
+            <div class="htp-step"><div class="htp-step-num">3</div><div class="htp-step-text">Runners then pick <strong>4 cells</strong> — avoiding trapped cells scores points!</div></div>
+          </div>
+          <div class="htp-scoring">
+            <div class="htp-scoring-title">Scoring</div>
+            <div class="htp-scoring-text">Runners: +10 per safe cell, −12 per trapped cell, +10 bonus for all safe. Trapper: +8 per runner caught, +3 per hit, +15 if ALL runners hit.</div>
+          </div>
+          <div class="htp-tip"><span class="htp-tip-icon">💡</span> As trapper, think about which cells runners are LEAST likely to pick!</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Leaderboard Modal ═══ -->
+  <div id="lb-modal" class="lb-overlay" style="display: none;">
+    <div class="lb-modal">
+      <div class="lb-header">
+        <h2>🏆 Last Game Leaderboard</h2>
+        <button class="lb-close" id="lb-close">✕</button>
+      </div>
+      <div id="lb-standings"></div>
+    </div>
+  </div>
+
 </body>
 </html>

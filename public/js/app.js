@@ -12,6 +12,7 @@
   let currentGameMode = 'classic';
   let localWhotState = null;
   let pendingWhotCard = null;
+  let lastGameData = null;
 
   // ─── Init ───
   function init() {
@@ -19,6 +20,10 @@
     setupEventListeners();
     setupSocketListeners();
     checkForRoomInURL();
+    // Render last game card if exists
+    if (lastGameData) {
+      UI.renderLastGameCard(document.getElementById('last-game-card'), lastGameData);
+    }
   }
 
   // ─── Check URL for room code ───
@@ -123,7 +128,10 @@
 
     // Back to home
     document.getElementById('btn-new-game').addEventListener('click', () => {
-      window.location.href = window.location.pathname;
+      if (lastGameData) {
+        UI.renderLastGameCard(document.getElementById('last-game-card'), lastGameData);
+      }
+      UI.showView('landing');
     });
 
     // ─── Grid Mode Event Listeners ───
@@ -153,6 +161,44 @@
 
     // ─── Tap Mode Event Listeners ───
     document.getElementById('btn-tap-area').addEventListener('click', handleTapAreaClick);
+
+    // ─── How to Play ───
+    document.getElementById('btn-how-to-play').addEventListener('click', () => {
+      document.getElementById('htp-modal').style.display = 'flex';
+    });
+    document.getElementById('htp-close').addEventListener('click', () => {
+      document.getElementById('htp-modal').style.display = 'none';
+    });
+    document.getElementById('htp-modal').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) {
+        e.currentTarget.style.display = 'none';
+      }
+    });
+    document.querySelectorAll('.htp-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.htp-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.htp-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        const mode = tab.dataset.mode;
+        document.getElementById(`htp-${mode}`).classList.add('active');
+      });
+    });
+
+    // ─── Last Game Leaderboard ───
+    document.getElementById('btn-view-leaderboard').addEventListener('click', () => {
+      if (lastGameData && lastGameData.standings) {
+        UI.renderLeaderboardModal(document.getElementById('lb-standings'), lastGameData.standings);
+        document.getElementById('lb-modal').style.display = 'flex';
+      }
+    });
+    document.getElementById('lb-close').addEventListener('click', () => {
+      document.getElementById('lb-modal').style.display = 'none';
+    });
+    document.getElementById('lb-modal').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) {
+        e.currentTarget.style.display = 'none';
+      }
+    });
   }
 
   // ─── Grid Event Listeners ───
@@ -818,6 +864,17 @@
   }
 
   function showFinalResults(standings) {
+    // Save last game data
+    const myId = Socket.getMyId();
+    const myStanding = standings.find(s => s.id === myId);
+    const myRank = standings.findIndex(s => s.id === myId) + 1;
+    lastGameData = {
+      mode: currentGameMode,
+      standings: standings,
+      myRank: myRank || null,
+      myScore: myStanding ? myStanding.totalScore : 0
+    };
+
     if (standings.length > 0) {
       document.getElementById('winner-name').textContent = standings[0].name;
       document.getElementById('winner-score').textContent = `${standings[0].totalScore} points`;
