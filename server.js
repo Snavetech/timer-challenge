@@ -101,14 +101,14 @@ function startRound(room) {
   room.state = 'playing';
 
   if (room.mode === 'speed') {
-    // Speed mode: target between 1 and 120 seconds (to 1 decimal)
-    room.targetTime = Math.round((Math.random() * 119 + 1) * 10) / 10;
-  } else if (room.mode === 'tap') {
-    // Tap mode: target time between 0.2 and 30 seconds
+    // Speed mode: target between 0.2 and 30 seconds (to 1 decimal)
     room.targetTime = Math.round((Math.random() * 29.8 + 0.2) * 10) / 10;
+  } else if (room.mode === 'tap') {
+    // Tap mode: target time between 3 and 60 seconds (to 1 decimal)
+    room.targetTime = Math.round((Math.random() * 57 + 3) * 10) / 10;
   } else {
-    // Classic mode: target between 1 and 90 seconds (to 1 decimal)
-    room.targetTime = Math.round((Math.random() * 89 + 1) * 10) / 10;
+    // Classic mode: target between 0.2 and 30 seconds (to 1 decimal)
+    room.targetTime = Math.round((Math.random() * 29.8 + 0.2) * 10) / 10;
   }
 
   const roundData = {
