@@ -613,18 +613,22 @@ function startWordSetup(room) {
     winnerId: null
   };
 
+  console.log('[Word] startWordSetup for room', room.code, 'playerOrder:', room.wordState.playerOrder);
+
   // Give players 60 seconds to lock their word
   if (room.roundTimeout) clearTimeout(room.roundTimeout);
   room.roundTimeout = setTimeout(() => {
     autoSetSecretWords(room);
   }, 60 * 1000);
 
-  io.to(room.code).emit('word-setup-started', {
+  const setupData = {
     roundNumber: room.currentRound,
     maxRounds: room.maxRounds,
     wordLength: room.wordState.wordLength,
     players: getPlayerList(room)
-  });
+  };
+  console.log('[Word] Emitting word-setup-started to room', room.code, setupData);
+  io.to(room.code).emit('word-setup-started', setupData);
 }
 
 function autoSetSecretWords(room) {

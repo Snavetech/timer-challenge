@@ -832,25 +832,34 @@
   // ─── Word Duel Socket Listeners ───
   function setupWordSocketListeners() {
     Socket.on('word-setup-started', (data) => {
-      currentGameMode = 'word';
-      Game.wordReset();
-      Game.wordSetLength(data.wordLength);
-      Game.setPlayers(data.players);
-      Game.setRoundInfo(data.roundNumber, data.maxRounds);
+      try {
+        console.log('[Word] word-setup-started received', data);
+        currentGameMode = 'word';
+        Game.wordReset();
+        Game.wordSetLength(data.wordLength);
+        Game.setPlayers(data.players);
+        Game.setRoundInfo(data.roundNumber, data.maxRounds);
 
-      document.getElementById('word-round-num').textContent = data.roundNumber;
-      document.getElementById('word-max-rounds').textContent = data.maxRounds;
-      document.getElementById('word-setup-desc').textContent = `Type a valid ${data.wordLength}-letter English word for your opponent to guess`;
-      
-      const setupInput = document.getElementById('word-setup-input');
-      setupInput.value = '';
-      setupInput.maxLength = data.wordLength;
-      setupInput.placeholder = `e.g. ${'word'.substring(0, data.wordLength)}`;
-      
-      document.getElementById('form-word-setup').style.display = 'block';
-      document.getElementById('word-setup-waiting').style.display = 'none';
+        const roundNumEl = document.getElementById('word-round-num');
+        const maxRoundsEl = document.getElementById('word-max-rounds');
+        if (roundNumEl) roundNumEl.textContent = data.roundNumber;
+        if (maxRoundsEl) maxRoundsEl.textContent = data.maxRounds;
+        document.getElementById('word-setup-desc').textContent = `Type a valid ${data.wordLength}-letter English word for your opponent to guess`;
+        
+        const setupInput = document.getElementById('word-setup-input');
+        setupInput.value = '';
+        setupInput.maxLength = data.wordLength;
+        setupInput.placeholder = `e.g. ${'word'.substring(0, data.wordLength)}`;
+        
+        document.getElementById('form-word-setup').style.display = 'block';
+        document.getElementById('word-setup-waiting').style.display = 'none';
 
-      UI.showView('word-setup');
+        UI.showView('word-setup');
+        console.log('[Word] showView word-setup done');
+      } catch (err) {
+        console.error('[Word] word-setup-started ERROR:', err);
+        UI.showToast('Error loading word setup: ' + err.message, 'error');
+      }
     });
 
     Socket.on('word-auto-assigned', (data) => {
@@ -869,23 +878,34 @@
     });
 
     Socket.on('word-started', (data) => {
-      Game.wordSetPhase('playing');
-      Game.wordSetSecret(data.mySecretWord);
-      Game.wordSetRevealedPatterns(data.myRevealedOfOpponent, data.opponentRevealedOfMine);
-      Game.wordSetTurn(data.turnPlayerId, data.turnPlayerName);
-      Game.wordSetHistory(data.myHistory, data.opponentHistory);
+      try {
+        console.log('[Word] word-started received', data);
+        Game.wordSetPhase('playing');
+        Game.wordSetSecret(data.mySecretWord);
+        Game.wordSetRevealedPatterns(data.myRevealedOfOpponent, data.opponentRevealedOfMine);
+        Game.wordSetTurn(data.turnPlayerId, data.turnPlayerName);
+        Game.wordSetHistory(data.myHistory, data.opponentHistory);
 
-      updateWordDuelUI();
-      UI.showView('word-game');
-      UI.showToast('Game started! Take turns to guess', 'success');
+        updateWordDuelUI();
+        UI.showView('word-game');
+        UI.showToast('Game started! Take turns to guess', 'success');
+        console.log('[Word] showView word-game done');
+      } catch (err) {
+        console.error('[Word] word-started ERROR:', err);
+        UI.showToast('Error starting word game: ' + err.message, 'error');
+      }
     });
 
     Socket.on('word-turn-update', (data) => {
-      Game.wordSetRevealedPatterns(data.myRevealedOfOpponent, data.opponentRevealedOfMine);
-      Game.wordSetTurn(data.turnPlayerId, data.turnPlayerName);
-      Game.wordSetHistory(data.myHistory, data.opponentHistory);
+      try {
+        Game.wordSetRevealedPatterns(data.myRevealedOfOpponent, data.opponentRevealedOfMine);
+        Game.wordSetTurn(data.turnPlayerId, data.turnPlayerName);
+        Game.wordSetHistory(data.myHistory, data.opponentHistory);
 
-      updateWordDuelUI();
+        updateWordDuelUI();
+      } catch (err) {
+        console.error('[Word] word-turn-update ERROR:', err);
+      }
     });
 
     Socket.on('word-turn-timed-out', (data) => {
@@ -893,17 +913,22 @@
     });
 
     Socket.on('word-round-results', (data) => {
-      Game.wordSetPhase('finished');
-      document.getElementById('word-results-round-num').textContent = data.roundNumber;
-      
-      UI.renderWordResults(data.results, data.standings);
-      
-      if (data.isLastRound) {
-        showFinalResults(data.standings);
-      } else {
-        document.getElementById('word-results-host-controls').style.display = Socket.getIsHost() ? 'block' : 'none';
-        document.getElementById('word-results-waiting').style.display = Socket.getIsHost() ? 'none' : 'flex';
-        UI.showView('word-results');
+      try {
+        Game.wordSetPhase('finished');
+        document.getElementById('word-results-round-num').textContent = data.roundNumber;
+        
+        UI.renderWordResults(data.results, data.standings);
+        
+        if (data.isLastRound) {
+          showFinalResults(data.standings);
+        } else {
+          document.getElementById('word-results-host-controls').style.display = Socket.getIsHost() ? 'block' : 'none';
+          document.getElementById('word-results-waiting').style.display = Socket.getIsHost() ? 'none' : 'flex';
+          UI.showView('word-results');
+        }
+      } catch (err) {
+        console.error('[Word] word-round-results ERROR:', err);
+        UI.showToast('Error showing results: ' + err.message, 'error');
       }
     });
   }
