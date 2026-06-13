@@ -118,11 +118,25 @@
                 <span class="mode-name">Grid</span>
                 <span class="mode-desc">Avoid traps</span>
               </button>
+              <button type="button" class="mode-option" data-mode="word">
+                <span class="mode-icon">🔤</span>
+                <span class="mode-name">Word Duel</span>
+                <span class="mode-desc">Guess secret word</span>
+              </button>
               <button type="button" class="mode-option" data-mode="whot" style="display: none;">
                 <span class="mode-icon">🃏</span>
                 <span class="mode-name">Whot</span>
                 <span class="mode-desc">Naija Card Game</span>
               </button>
+            </div>
+          </div>
+          <div class="form-group" id="word-length-group" style="display: none;">
+            <label>Secret Word Length</label>
+            <div class="word-lengths-selector" id="word-lengths-selector">
+              <button type="button" class="word-len-option" data-len="3">3</button>
+              <button type="button" class="word-len-option active" data-len="4">4</button>
+              <button type="button" class="word-len-option" data-len="5">5</button>
+              <button type="button" class="word-len-option" data-len="6">6</button>
             </div>
           </div>
           <div class="form-group">
@@ -530,6 +544,163 @@
 
         <div class="timer-hint">
           Tap as fast as you can until the time runs out!
+        </div>
+    <!-- ─── WORD SETUP VIEW ─── -->
+    <section id="view-word-setup" class="view">
+      <div class="card card-form">
+        <h2 class="card-title">Secret Word Setup</h2>
+        <p class="card-desc" id="word-setup-desc">Type a valid 4-letter English word for your opponent to guess</p>
+        
+        <!-- Setup Input Form -->
+        <form id="form-word-setup" autocomplete="off">
+          <div class="form-group">
+            <label for="word-setup-input">Secret Word</label>
+            <input type="text" id="word-setup-input" placeholder="Type word" class="input-code" required>
+          </div>
+          <button type="submit" class="btn btn-primary btn-full" id="btn-word-setup-submit">
+            🔒 Lock Word
+          </button>
+        </form>
+
+        <!-- Waiting Screen -->
+        <div id="word-setup-waiting" class="lobby-waiting" style="display: none;">
+          <div class="pulse-dot"></div>
+          <span>Word locked! Waiting for opponent...</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── WORD Duel GAMEPLAY VIEW ─── -->
+    <section id="view-word-game" class="view">
+      <div class="word-game-container">
+        <div class="game-header">
+          <div class="game-header-left">
+            <div class="round-badge">
+              Round <span id="word-round-num">1</span> of <span id="word-max-rounds">3</span>
+            </div>
+            <div class="mode-badge mode-badge-word">
+              <span class="mode-badge-icon">🔤</span>
+              <span>Word Duel</span>
+            </div>
+          </div>
+          <div class="game-players-status" id="word-players-status"></div>
+        </div>
+
+        <!-- Active Turn Badge -->
+        <div class="word-turn-section">
+          <div class="word-turn-badge" id="word-turn-badge">
+            <span class="word-turn-icon" id="word-turn-icon">⏳</span>
+            <span class="word-turn-text" id="word-turn-text">Waiting...</span>
+          </div>
+          <div class="word-turn-timer-wrap">
+            <div class="word-turn-timer-bar" id="word-turn-timer-bar"></div>
+          </div>
+        </div>
+
+        <!-- Opponent's Word Reveal Area -->
+        <div class="word-reveal-box">
+          <h3 class="word-section-title">Opponent's Word</h3>
+          <p class="word-section-desc">Reveal this word by matching letters at their exact positions</p>
+          <div class="word-letters-grid" id="word-letters-grid">
+            <!-- Dynamic letter boxes like [C] [_] [A] [T] -->
+          </div>
+        </div>
+
+        <!-- Status Card (My secret word & opponent's progress on me) -->
+        <div class="word-status-card">
+          <div class="word-status-column">
+            <span class="word-status-label">Your Secret Word</span>
+            <div class="word-status-letters" id="word-my-secret-letters">
+              <!-- e.g. C A S T -->
+            </div>
+          </div>
+          <div class="word-status-column">
+            <span class="word-status-label">Opponent's Progress on You</span>
+            <div class="word-status-letters" id="word-opp-progress-letters">
+              <!-- e.g. C _ _ T -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Side-by-Side Guess History Log -->
+        <div class="word-history-layout">
+          <div class="word-history-column">
+            <h4 class="word-history-title">Your Guesses</h4>
+            <div class="word-history-list" id="word-my-history-list">
+              <!-- guesses list -->
+            </div>
+          </div>
+          <div class="word-history-column">
+            <h4 class="word-history-title">Opponent's Guesses</h4>
+            <div class="word-history-list" id="word-opp-history-list">
+              <!-- guesses list -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Guess Input Form -->
+        <div class="word-input-area" id="word-input-area">
+          <form id="form-word-guess" autocomplete="off">
+            <div class="word-input-group">
+              <input type="text" id="word-guess-input" placeholder="Type guess..." maxlength="6" required>
+              <button type="submit" class="btn btn-primary" id="btn-word-guess-submit">Submit Guess</button>
+            </div>
+            <p class="word-input-hint" id="word-guess-hint">Type any 4 letters to guess</p>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── WORD Duel RESULTS VIEW ─── -->
+    <section id="view-word-results" class="view">
+      <div class="results-container">
+        <div class="card results-card">
+          <div class="results-header">
+            <h2 class="card-title">Round <span id="word-results-round-num">1</span> Results</h2>
+            <div class="word-results-winner" id="word-results-winner">
+              <span class="winner-trophy">🏆</span>
+              <span id="word-winner-name">Player</span> guessed the word!
+            </div>
+          </div>
+
+          <!-- Secret words reveal -->
+          <div class="word-reveal-summary-grid">
+            <div class="word-reveal-player-card" id="word-results-p1-card">
+              <span class="p-card-avatar" id="word-results-p1-avatar"></span>
+              <div class="p-card-info">
+                <span class="p-card-name" id="word-results-p1-name">Player 1</span>
+                <span class="p-card-word-label">Secret Word</span>
+                <span class="p-card-word-value" id="word-results-p1-word">CHAT</span>
+                <span class="p-card-points" id="word-results-p1-points">+10 pts</span>
+              </div>
+            </div>
+            <div class="word-reveal-player-card" id="word-results-p2-card">
+              <span class="p-card-avatar" id="word-results-p2-avatar"></span>
+              <div class="p-card-info">
+                <span class="p-card-name" id="word-results-p2-name">Player 2</span>
+                <span class="p-card-word-label">Secret Word</span>
+                <span class="p-card-word-value" id="word-results-p2-word">CAST</span>
+                <span class="p-card-points" id="word-results-p2-points">+3 pts</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Overall standings -->
+          <div class="standings-section">
+            <h3 class="standings-title">Overall Standings</h3>
+            <div class="standings-list" id="word-standings-list"></div>
+          </div>
+
+          <div id="word-results-host-controls" class="results-controls" style="display:none;">
+            <button class="btn btn-primary btn-large btn-full" id="btn-word-next-round">
+              Next Round →
+            </button>
+          </div>
+
+          <div id="word-results-waiting" class="lobby-waiting">
+            <div class="pulse-dot"></div>
+            <span>Waiting for host to start next round...</span>
+          </div>
         </div>
       </div>
     </section>

@@ -228,6 +228,92 @@ const Game = (() => {
     return tapActive;
   }
 
+  // ─── Word Duel State ───
+  let wordLength = 4;
+  let mySecretWord = '';
+  let myRevealedOfOpponent = '';
+  let opponentRevealedOfMine = '';
+  let wordTurnPlayerId = '';
+  let wordTurnPlayerName = '';
+  let myWordHistory = [];
+  let opponentWordHistory = [];
+  let wordPhase = 'setup'; // setup | playing | finished
+
+  function wordReset() {
+    wordLength = 4;
+    mySecretWord = '';
+    myRevealedOfOpponent = '';
+    opponentRevealedOfMine = '';
+    wordTurnPlayerId = '';
+    wordTurnPlayerName = '';
+    myWordHistory = [];
+    opponentWordHistory = [];
+    wordPhase = 'setup';
+  }
+
+  function wordSetLength(len) {
+    wordLength = len;
+  }
+
+  function wordGetLength() {
+    return wordLength;
+  }
+
+  function wordSetSecret(word) {
+    mySecretWord = word;
+  }
+
+  function wordGetSecret() {
+    return mySecretWord;
+  }
+
+  function wordSetRevealedPatterns(myPattern, oppPattern) {
+    myRevealedOfOpponent = myPattern;
+    opponentRevealedOfMine = oppPattern;
+  }
+
+  function wordGetMyPattern() {
+    return myRevealedOfOpponent;
+  }
+
+  function wordGetOpponentPattern() {
+    return opponentRevealedOfMine;
+  }
+
+  function wordSetTurn(id, name) {
+    wordTurnPlayerId = id;
+    wordTurnPlayerName = name;
+  }
+
+  function wordGetTurnPlayerId() {
+    return wordTurnPlayerId;
+  }
+
+  function wordGetTurnPlayerName() {
+    return wordTurnPlayerName;
+  }
+
+  function wordSetHistory(myHist, oppHist) {
+    myWordHistory = myHist || [];
+    opponentWordHistory = oppHist || [];
+  }
+
+  function wordGetMyHistory() {
+    return myWordHistory;
+  }
+
+  function wordGetOpponentHistory() {
+    return opponentWordHistory;
+  }
+
+  function wordSetPhase(phase) {
+    wordPhase = phase;
+  }
+
+  function wordGetPhase() {
+    return wordPhase;
+  }
+
   return {
     setMode,
     getMode,
@@ -260,6 +346,23 @@ const Game = (() => {
     handleTap,
     getTapCount,
     isTapActive,
+    // Word methods
+    wordReset,
+    wordSetLength,
+    wordGetLength,
+    wordSetSecret,
+    wordGetSecret,
+    wordSetRevealedPatterns,
+    wordGetMyPattern,
+    wordGetOpponentPattern,
+    wordSetTurn,
+    wordGetTurnPlayerId,
+    wordGetTurnPlayerName,
+    wordSetHistory,
+    wordGetMyHistory,
+    wordGetOpponentHistory,
+    wordSetPhase,
+    wordGetPhase,
     get currentRound() { return currentRound; },
     get maxRounds() { return maxRounds; },
     get currentTarget() { return currentTarget; }

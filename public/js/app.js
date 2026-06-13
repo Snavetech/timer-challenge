@@ -8,6 +8,7 @@
   // ─── State ───
   let selectedRounds = 3;
   let selectedMode = 'classic';
+  let selectedWordLen = 4;
   let hostId = null;
   let currentGameMode = 'classic';
   let localWhotState = null;
@@ -71,6 +72,21 @@
         document.querySelectorAll('.mode-option').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         selectedMode = btn.dataset.mode;
+
+        // Toggle word length group visibility
+        const wordLenGroup = document.getElementById('word-length-group');
+        if (wordLenGroup) {
+          wordLenGroup.style.display = (selectedMode === 'word') ? 'block' : 'none';
+        }
+      });
+    });
+
+    // Word length selector
+    document.querySelectorAll('.word-len-option').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.word-len-option').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedWordLen = parseInt(btn.dataset.len);
       });
     });
 
@@ -88,7 +104,7 @@
       e.preventDefault();
       const username = document.getElementById('create-username').value.trim();
       if (!username) return UI.showToast('Please enter your name', 'error');
-      Socket.createRoom(username, selectedRounds, selectedMode);
+      Socket.createRoom(username, selectedRounds, selectedMode, selectedWordLen);
     });
 
     // Join room form
@@ -136,6 +152,9 @@
 
     // ─── Grid Mode Event Listeners ───
     setupGridEventListeners();
+
+    // ─── Word Duel Event Listeners ───
+    setupWordEventListeners();
 
     // ─── Whot Mode Event Listeners ───
     document.getElementById('whot-deck').addEventListener('click', () => {
@@ -247,6 +266,52 @@
 
     // Grid next round button
     document.getElementById('btn-grid-next-round').addEventListener('click', () => {
+      Socket.nextRound();
+    });
+  }
+
+  // ─── Word Duel Event Listeners ───
+  function setupWordEventListeners() {
+    document.getElementById('form-word-setup').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = document.getElementById('word-setup-input');
+      const word = input.value.trim().toLowerCase();
+      const len = Game.wordGetLength();
+      
+      if (!word || word.length !== len) {
+        UI.showToast(`Word must be exactly ${len} letters`, 'error');
+        return;
+      }
+
+      if (!/^[a-z]+$/.test(word)) {
+        UI.showToast('Word must contain only letters', 'error');
+        return;
+      }
+
+      Socket.wordSubmitSecret(word);
+    });
+
+    document.getElementById('form-word-guess').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = document.getElementById('word-guess-input');
+      const guess = input.value.trim().toLowerCase();
+      const len = Game.wordGetLength();
+
+      if (!guess || guess.length !== len) {
+        UI.showToast(`Guess must be exactly ${len} letters`, 'error');
+        return;
+      }
+
+      if (!/^[a-z]+$/.test(guess)) {
+        UI.showToast('Guess must contain only letters', 'error');
+        return;
+      }
+
+      input.value = '';
+      Socket.wordSubmitGuess(guess);
+    });
+
+    document.getElementById('btn-word-next-round').addEventListener('click', () => {
       Socket.nextRound();
     });
   }
@@ -510,6 +575,9 @@
     // ─── Whot Mode Socket Listeners ───
     setupWhotSocketListeners();
 
+    // ─── Word Duel Socket Listeners ───
+    setupWordSocketListeners();
+
     // Game reset (play again)
     Socket.on('game-reset', (data) => {
       currentGameMode = data.mode || 'classic';
@@ -761,6 +829,143 @@
     });
   }
 
+  // ─── Word Duel Socket Listeners ───
+  function setupWordSocketListeners() {
+    Socket.on('word-setup-started', (data) => {
+      currentGameMode = 'word';
+      Game.wordReset();
+      Game.wordSetLength(data.wordLength);
+      Game.setPlayers(data.players);
+      Game.setRoundInfo(data.roundNumber, data.maxRounds);
+
+      document.getElementById('word-round-num').textContent = data.roundNumber;
+      document.getElementById('word-max-rounds').textContent = data.maxRounds;
+      document.getElementById('word-setup-desc').textContent = `Type a valid ${data.wordLength}-letter English word for your opponent to guess`;
+      
+      const setupInput = document.getElementById('word-setup-input');
+      setupInput.value = '';
+      setupInput.maxLength = data.wordLength;
+      setupInput.placeholder = `e.g. ${'word'.substring(0, data.wordLength)}`;
+      
+      document.getElementById('form-word-setup').style.display = 'block';
+      document.getElementById('word-setup-waiting').style.display = 'none';
+
+      UI.showView('word-setup');
+    });
+
+    Socket.on('word-auto-assigned', (data) => {
+      UI.showToast(`Time's up! Secret word auto-set to: ${data.word.toUpperCase()}`, 'warning');
+    });
+
+    Socket.on('word-secret-locked', (data) => {
+      Game.wordSetSecret(data.word);
+      document.getElementById('form-word-setup').style.display = 'none';
+      document.getElementById('word-setup-waiting').style.display = 'flex';
+      UI.showToast('Your secret word is locked in!', 'success');
+    });
+
+    Socket.on('word-opponent-submitted', () => {
+      UI.showToast('Opponent locked their word! Waiting for you...', 'info');
+    });
+
+    Socket.on('word-started', (data) => {
+      Game.wordSetPhase('playing');
+      Game.wordSetSecret(data.mySecretWord);
+      Game.wordSetRevealedPatterns(data.myRevealedOfOpponent, data.opponentRevealedOfMine);
+      Game.wordSetTurn(data.turnPlayerId, data.turnPlayerName);
+      Game.wordSetHistory(data.myHistory, data.opponentHistory);
+
+      updateWordDuelUI();
+      UI.showView('word-game');
+      UI.showToast('Game started! Take turns to guess', 'success');
+    });
+
+    Socket.on('word-turn-update', (data) => {
+      Game.wordSetRevealedPatterns(data.myRevealedOfOpponent, data.opponentRevealedOfMine);
+      Game.wordSetTurn(data.turnPlayerId, data.turnPlayerName);
+      Game.wordSetHistory(data.myHistory, data.opponentHistory);
+
+      updateWordDuelUI();
+    });
+
+    Socket.on('word-turn-timed-out', (data) => {
+      UI.showToast(data.message, 'warning');
+    });
+
+    Socket.on('word-round-results', (data) => {
+      Game.wordSetPhase('finished');
+      document.getElementById('word-results-round-num').textContent = data.roundNumber;
+      
+      UI.renderWordResults(data.results, data.standings);
+      
+      if (data.isLastRound) {
+        showFinalResults(data.standings);
+      } else {
+        document.getElementById('word-results-host-controls').style.display = Socket.getIsHost() ? 'block' : 'none';
+        document.getElementById('word-results-waiting').style.display = Socket.getIsHost() ? 'none' : 'flex';
+        UI.showView('word-results');
+      }
+    });
+  }
+
+  function updateWordDuelUI() {
+    const myId = Socket.getMyId();
+    const myTurn = (Game.wordGetTurnPlayerId() === myId);
+
+    document.getElementById('word-round-num').textContent = Game.currentRound;
+    document.getElementById('word-max-rounds').textContent = Game.maxRounds;
+
+    const turnBadge = document.getElementById('word-turn-badge');
+    const turnText = document.getElementById('word-turn-text');
+    const turnIcon = document.getElementById('word-turn-icon');
+
+    if (myTurn) {
+      turnBadge.className = 'word-turn-badge my-turn';
+      turnText.textContent = 'Your Turn to Guess!';
+      turnIcon.textContent = '🎯';
+      document.getElementById('word-input-area').style.display = 'block';
+    } else {
+      turnBadge.className = 'word-turn-badge opponent-turn';
+      turnText.textContent = `${Game.wordGetTurnPlayerName()}'s Turn...`;
+      turnIcon.textContent = '⏳';
+      document.getElementById('word-input-area').style.display = 'none';
+    }
+
+    const timerBar = document.getElementById('word-turn-timer-bar');
+    if (timerBar) {
+      timerBar.style.animation = 'none';
+      timerBar.offsetHeight;
+      timerBar.style.animation = 'turnTimerProgress 45s linear forwards';
+    }
+
+    UI.renderWordBoard(
+      document.getElementById('word-letters-grid'),
+      Game.wordGetMyPattern(),
+      Game.wordGetOpponentPattern(),
+      Game.wordGetLength(),
+      Game.wordGetSecret()
+    );
+
+    UI.renderWordHistory(document.getElementById('word-my-history-list'), Game.wordGetMyHistory());
+    UI.renderWordHistory(document.getElementById('word-opp-history-list'), Game.wordGetOpponentHistory());
+
+    const guessInput = document.getElementById('word-guess-input');
+    if (guessInput) {
+      guessInput.maxLength = Game.wordGetLength();
+      guessInput.placeholder = `Type ${Game.wordGetLength()}-letter guess`;
+    }
+    const guessHint = document.getElementById('word-guess-hint');
+    if (guessHint) {
+      guessHint.textContent = `Type any ${Game.wordGetLength()} letters to check for index matches`;
+    }
+
+    UI.renderPlayerStatusDots(
+      document.getElementById('word-players-status'),
+      Game.getPlayers(),
+      [Game.wordGetTurnPlayerId()]
+    );
+  }
+
   function handleWhotCardClick(card) {
     if (!localWhotState || localWhotState.turnIndex === -1) return;
     const myId = Socket.getMyId();
@@ -827,6 +1032,9 @@
     } else if (mode === 'whot') {
       modeEl.textContent = '🃏 Whot';
       gridInfo.style.display = 'none';
+    } else if (mode === 'word') {
+      modeEl.textContent = '🔤 Word Duel';
+      gridInfo.style.display = 'none';
     } else {
       modeEl.textContent = '🙈 Classic';
       gridInfo.style.display = 'none';
@@ -844,7 +1052,7 @@
       hostId
     );
 
-    const maxPlayers = mode === 'grid' ? 5 : 15;
+    const maxPlayers = mode === 'word' ? 2 : (mode === 'grid' ? 5 : 15);
     document.getElementById('lobby-player-count').textContent = `${players.length}/${maxPlayers}`;
   }
 

@@ -337,7 +337,7 @@ const UI = (() => {
     container.style.display = 'block';
 
     // Mode label
-    const modeNames = { classic: '🙈 Classic', speed: '⚡ Speed', tap: '👆 Tap', grid: '🔲 Grid' };
+    const modeNames = { classic: '🙈 Classic', speed: '⚡ Speed', tap: '👆 Tap', grid: '🔲 Grid', word: '🔤 Word Duel' };
     const modeEl = container.querySelector('#last-game-mode');
     if (modeEl) modeEl.textContent = modeNames[data.mode] || 'Classic';
 
@@ -395,6 +395,129 @@ const UI = (() => {
     });
   }
 
+  function renderWordBoard(gridContainer, myPattern, oppPattern, wordLength, mySecretWord) {
+    gridContainer.innerHTML = '';
+    for (let i = 0; i < wordLength; i++) {
+      const card = document.createElement('div');
+      const letter = myPattern[i];
+      if (letter && letter !== '_') {
+        card.className = 'word-letter-card revealed';
+        card.textContent = letter.toUpperCase();
+      } else {
+        card.className = 'word-letter-card empty';
+        card.textContent = '';
+      }
+      gridContainer.appendChild(card);
+    }
+
+    const mySecretContainer = document.getElementById('word-my-secret-letters');
+    if (mySecretContainer && mySecretWord) {
+      mySecretContainer.innerHTML = '';
+      for (let i = 0; i < wordLength; i++) {
+        const card = document.createElement('div');
+        card.className = 'word-status-letter-card';
+        card.textContent = mySecretWord[i].toUpperCase();
+        mySecretContainer.appendChild(card);
+      }
+    }
+
+    const oppProgressContainer = document.getElementById('word-opp-progress-letters');
+    if (oppProgressContainer && oppPattern) {
+      oppProgressContainer.innerHTML = '';
+      for (let i = 0; i < wordLength; i++) {
+        const card = document.createElement('div');
+        const letter = oppPattern[i];
+        if (letter && letter !== '_') {
+          card.className = 'word-status-letter-card revealed';
+          card.textContent = letter.toUpperCase();
+        } else {
+          card.className = 'word-status-letter-card empty';
+          card.textContent = '_';
+        }
+        oppProgressContainer.appendChild(card);
+      }
+    }
+  }
+
+  function renderWordHistory(container, historyList) {
+    if (!container) return;
+    container.innerHTML = '';
+    
+    if (!historyList || historyList.length === 0) {
+      const emptyMsg = document.createElement('div');
+      emptyMsg.className = 'word-history-empty';
+      emptyMsg.textContent = 'No guesses yet';
+      container.appendChild(emptyMsg);
+      return;
+    }
+
+    const reversed = [...historyList].reverse();
+    reversed.forEach(entry => {
+      const row = document.createElement('div');
+      row.className = 'word-history-row';
+      
+      row.innerHTML = `
+        <span class="word-history-guess">${escapeHtml(entry.guess)}</span>
+        <span class="word-history-pattern">${escapeHtml(entry.patternAfter)}</span>
+        <span class="word-history-badge">${entry.matchesCount} match${entry.matchesCount === 1 ? '' : 'es'}</span>
+      `;
+      container.appendChild(row);
+    });
+  }
+
+  function renderWordResults(results, standings) {
+    const winner = results.find(r => r.isWinner);
+    const loser = results.find(r => !r.isWinner);
+
+    if (winner) {
+      const winnerNameEl = document.getElementById('word-winner-name');
+      if (winnerNameEl) {
+        winnerNameEl.textContent = winner.playerName;
+      }
+    }
+
+    const p1Card = document.getElementById('word-results-p1-card');
+    const p1Avatar = document.getElementById('word-results-p1-avatar');
+    const p1Name = document.getElementById('word-results-p1-name');
+    const p1Word = document.getElementById('word-results-p1-word');
+    const p1Points = document.getElementById('word-results-p1-points');
+    
+    if (winner) {
+      const playerColor = standings.find(s => s.id === winner.playerId)?.color || 'var(--accent)';
+      if (p1Avatar) {
+        p1Avatar.style.background = playerColor;
+        p1Avatar.textContent = winner.playerName.substring(0, 2).toUpperCase();
+      }
+      if (p1Name) p1Name.textContent = winner.playerName;
+      if (p1Word) p1Word.textContent = winner.secretWord.toUpperCase();
+      if (p1Points) p1Points.textContent = `+${winner.score} pts`;
+      if (p1Card) p1Card.className = 'word-reveal-player-card card-winner';
+    }
+
+    const p2Card = document.getElementById('word-results-p2-card');
+    const p2Avatar = document.getElementById('word-results-p2-avatar');
+    const p2Name = document.getElementById('word-results-p2-name');
+    const p2Word = document.getElementById('word-results-p2-word');
+    const p2Points = document.getElementById('word-results-p2-points');
+
+    if (loser) {
+      const playerColor = standings.find(s => s.id === loser.playerId)?.color || 'var(--accent-2)';
+      if (p2Avatar) {
+        p2Avatar.style.background = playerColor;
+        p2Avatar.textContent = loser.playerName.substring(0, 2).toUpperCase();
+      }
+      if (p2Name) p2Name.textContent = loser.playerName;
+      if (p2Word) p2Word.textContent = loser.secretWord.toUpperCase();
+      if (p2Points) p2Points.textContent = `+${loser.score} pts`;
+      if (p2Card) p2Card.className = 'word-reveal-player-card card-loser';
+    }
+
+    const standingsList = document.getElementById('word-standings-list');
+    if (standingsList) {
+      renderStandings(standingsList, standings);
+    }
+  }
+
   return {
     showView,
     showToast,
@@ -413,6 +536,9 @@ const UI = (() => {
     renderWhotTopCard,
     renderWhotOpponents,
     renderLastGameCard,
-    renderLeaderboardModal
+    renderLeaderboardModal,
+    renderWordBoard,
+    renderWordHistory,
+    renderWordResults
   };
 })();

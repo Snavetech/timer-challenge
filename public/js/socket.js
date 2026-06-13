@@ -125,6 +125,14 @@ const Socket = (() => {
     socket.emit('whot-draw-card', { roomCode });
   }
 
+  function wordSubmitSecret(word) {
+    socket.emit('word-submit-secret', { roomCode, word });
+  }
+
+  function wordSubmitGuess(guess) {
+    socket.emit('word-submit-guess', { roomCode, guess });
+  }
+
   return {
     connect,
     createRoom,
@@ -145,6 +153,8 @@ const Socket = (() => {
     isConnected,
     on,
     whotPlayCard,
-    whotDrawCard
+    whotDrawCard,
+    wordSubmitSecret,
+    wordSubmitGuess
   };
 })();
